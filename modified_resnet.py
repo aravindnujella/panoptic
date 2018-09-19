@@ -29,6 +29,14 @@ class split_conv(nn.Module):
         copy = self.copy_conv(x)
         return torch.cat([ignore, copy], 1)
 
+class split_bn(nn.Module):
+    def __init__(self, cur_in, d_in, **kwargs):
+        super(split_bn, self).__init__()
+        self.ignore_bn = nn.BatchNorm2d(cur_in, kwargs)
+        self.copy_bn = None
+    def forward(self, x):
+        ig, cp = x
+        return self.ignore_bn(ig), cp
 
 class Bottleneck(nn.Module):
     expansion = 4
@@ -164,8 +172,10 @@ def modify_conv(conv, d_in, d_out):
 
 
 def modify_bn(bn, d_in, d_out):
-
-    return 0
+    variance, mean = bn.variance, bn.mean
+    new_variance, new_mean = variance, mean
+    new_bn = nn.BatchNorm2d()
+    return new_bn
 
 
 def modify_bottleneck(bottleneck, d_in):

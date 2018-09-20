@@ -19,10 +19,10 @@ model_urls = {
 
 class split_conv(nn.Module):
 
-    def __init__(self, cur_in, cur_out, d_out, kernel_size, stride=1, padding=0, bias=False):
+    def __init__(self, cur_in, cur_out, d_out, *args, **kwargs):
         super(split_conv, self).__init__()
-        self.ignore_conv = nn.Conv2d(cur_in, cur_out, kernel_size=kernel_size, stride=stride, padding=padding)
-        self.copy_conv = nn.Conv2d(cur_in, d_out, kernel_size=kernel_size, stride=stride, padding=padding)
+        self.ignore_conv = nn.Conv2d(cur_in, cur_out, *args, **kwargs)
+        self.copy_conv = nn.Conv2d(cur_in, d_out, *args, **kwargs)
 
     def forward(self, x):
         ignore = self.ignore_conv(x)
@@ -30,9 +30,9 @@ class split_conv(nn.Module):
         return torch.cat([ignore, copy], 1)
 
 class split_bn(nn.Module):
-    def __init__(self, cur_in, d_in, **kwargs):
+    def __init__(self, cur_in, d_in, *args, **kwargs):
         super(split_bn, self).__init__()
-        self.ignore_bn = nn.BatchNorm2d(cur_in, kwargs)
+        self.ignore_bn = nn.BatchNorm2d(cur_in, *args, **kwargs)
         self.copy_bn = None
     def forward(self, x):
         ig, cp = x

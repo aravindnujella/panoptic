@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.utils.model_zoo as model_zoo
 import torchvision.models as models
 
+import numpy as np
 # __all__ = ['ResNet', 'resnet18', 'resnet34', 'resnet50', 'resnet101',
 #            'resnet152']
 
@@ -73,17 +74,21 @@ class Bottleneck(nn.Module):
 
     def forward(self, x):
         residual = x
+        print("x.shape: ", x.shape)
 
         out = self.conv1(x)
         out = self.bn1(out)
         out = self.relu(out)
+        print(out.shape)
 
         out = self.conv2(out)
         out = self.bn2(out)
         out = self.relu(out)
+        print(out.shape)
 
         out = self.conv3(out)
         out = self.bn3(out)
+        print(out.shape)
 
         if self.downsample is not None:
             residual = self.downsample(x)
@@ -134,9 +139,13 @@ class iResNet(nn.Module):
         x = self.relu(x)
         x = self.maxpool(x)
 
+        print("layer1")
         x = self.layer1(x)
+        print("layer2")
         x = self.layer2(x)
+        print("layer3")
         x = self.layer3(x)
+        print("layer4")
         x = self.layer4(x)
 
         return x
@@ -172,6 +181,9 @@ def init_conv(conv, d_in, d_out):
 
     mod_conv = split_conv(old_in + d_in, old_out, d_out, kernel_size=kernel_size, stride=conv.stride, padding=conv.padding)
 
+    assert(mod_conv.copy_conv.weight.shape == cp_filter_weight.shape)
+    assert(mod_conv.ignore_conv.weight.shape == ig_filter_weight.shape)
+
     mod_conv.copy_conv.weight = nn.Parameter(cp_filter_weight)
     mod_conv.ignore_conv.weight = nn.Parameter(ig_filter_weight)
     return mod_conv
@@ -185,6 +197,8 @@ def init_bn(bn, d_in):
 
     old_in = bn.weight.shape[0]
     mod_bn = split_bn(old_in, d_in)
+
+    assert(old_in == mod_bn.ignore_bn.weight.shape[0])
 
     mod_bn.ignore_bn.running_var = bn.running_var
     mod_bn.ignore_bn.running_mean = bn.running_mean
@@ -200,6 +214,7 @@ def init_bn(bn, d_in):
 
 
 # initialize a single bottleneck block
+# takes a resnet block, returns iresnet block
 # bottleneck block has three conv modules and 
 # optionally one downsample conv
 # the modification to bottleneck is defined as follows
@@ -221,14 +236,14 @@ def init_bottleneck(block, d_in, stride):
     
     new_block.conv1 = init_conv(block.conv1, d_in, d_in)
     new_block.bn1 = init_bn(block.bn1, d_in)
-    new_block.conv2 = init_conv(block.conv2, d_in, block.expansion * d_in)
+    new_block.conv2 = init_conv(block.conv2, d_in, d_in)
     new_block.bn2 = init_bn(block.bn2, d_in)
-    new_block.conv3 = init_conv(block.conv3, block.expansion * d_in, block.expansion * d_in)
-    new_block.bn3 = init_bn(block.bn3, block.expansion * d_in)
+    new_block.conv3 = init_conv(block.conv3, d_in, d_in)
+    new_block.bn3 = init_bn(block.bn3, d_in)
 
     if block.downsample != None:
-        downsample_conv = init_conv(block.downsample[0], block.expansion * planes, d_in)
-        downsample_bn = init_bn(block.downsample[1], block.expansion * planes)
+        downsample_conv = init_conv(block.downsample[0], d_in, d_in)
+        downsample_bn = init_bn(block.downsample[1], d_in)
         new_block.downsample = nn.Sequential(downsample_conv, downsample_bn,)
     else:
         new_block.downsample = None
@@ -262,4 +277,33 @@ def modify_resnet():
     return iresnet
 
 if __name__ == '__main__':
-    net = modify_resnet()
+    from PIL import Image
+    img = Image.open("./data/0.png").convert('RGB')
+    img = np.array(img, np.float32)
+    
+    mu = np.array(
+    [0.485, 0.456, 0.406], dtype=np.float32).reshape(1, 1, -1)
+    sig = np.array(
+    [0.229, 0.224, 0.225], dtype=np.float32).reshape(1, 1, -1)
+
+    img /= 255
+    img -= mu
+    img /= sig    
+
+    img = np.moveaxis(img, 2, 0)
+    img = np.expand_dims(img, 0)
+
+    img = torch.Tensor(img)
+    
+    impulse = torch.zeros(img.shape[-2:]).unsqueeze(0).unsqueeze(0)
+    
+    inp = torch.cat([img, impulse], 1)
+    inp = inp.cuda()
+
+    # net0 = resnet()
+    # net0 = net0.cuda()
+
+    net1 = modify_resnet()
+    net1 = net1.cuda()
+    print(net1(inp).shape)
+    # assert(net0(x) == net1(x)[:128])

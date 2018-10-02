@@ -218,49 +218,64 @@ def init_bn(bn, mod_bn, d_in):
 # bottleneck block has three conv modules and 
 # optionally one downsample conv
 # the modification to bottleneck is defined as follows
-# we take a current bottleneck module and parameter 
-# d_in that determines how bottleneck is modified
-# conv1 -> in_planes, planes => in_planes + d_in, planes + d_in
-# conv2 -> planes, planes => planes + d_in, planes + d_in
-# conv3 -> planes, 4 * planes => planes + d_in, 4 * planes + d_in
-# conv3's d_out is kept as d_in instead of 4 * d_in o.w. we cannot add the residual without downsample.
-# downsample -> in_planes, 4 * planes => in_planes + d_in, 4 * planes + d_in
-# d_in parameter is doubled whenever number of planes are doubled.
+# we take a current bottleneck module and parameters 
+# p, q that determine how bottleneck is modified
+# if downsample == none: p must be equal to q
+# this is so that we can pure residual
+# if downsample is not none: q determines how many extra channels are added at end of a bottleneck block
+# in general modification is as follows
+# conv1 -> in_planes, planes => in_planes + p, planes + p
+# conv2 -> planes, planes => planes + p, planes + p
+# conv3 -> planes, 4 * planes => planes + p, 4 * planes + q
+# downsample (!none) -> in_planes, 4 * planes => in_planes + p, 4 * planes + q
 
-def init_bottleneck(block, new_block, p,q, stride):
+def init_bottleneck(block, new_block, d_in, stride):
 
     inplanes = block.conv1.weight.shape[1]
     planes = block.conv1.weight.shape[0]
 
     # new_block = Bottleneck(inplanes, planes, d_in, stride)
-     
-    d_out = d_in
+    p,q,r,s = d_in
     if block.downsample != None:
-        d_out *= 4
-        init_conv(block.downsample[0],downsample_conv, d_in, d_out)
-        init_bn(block.downsample[1], downsample_bn, d_out)
+        init_conv(block.downsample[0],downsample_conv, p, s)
+        init_bn(block.downsample[1], downsample_bn, s)
         new_block.downsample = nn.Sequential(downsample_conv, downsample_bn,)
     else:
+        # making sure that we can add pure residual
+        assert(p == s)
         new_block.downsample = None
     
-    init_conv(block.conv1, new_block.conv1, d_in, d_out)
-    init_bn(block.bn1, new_block.bn1, d_out)
-    init_conv(block.conv2, new_block.conv2, d_out, d_out)
-    init_bn(block.bn2, new_block.bn2, d_out)
-    init_conv(block.conv3, new_block.conv3, d_out, d_out)
-    init_bn(block.bn3, new_block.bn3, d_out)
+    init_conv(block.conv1, new_block.conv1, p, q)
+    init_bn(block.bn1, new_block.bn1, q)
+    init_conv(block.conv2, new_block.conv2, q, r)
+    init_bn(block.bn2, new_block.bn2, r)
+    init_conv(block.conv3, new_block.conv3, r, s)
+    init_bn(block.bn3, new_block.bn3, s)
 
 
     # return new_block
 
+def doub(d_in):
+    for i in range(len(d_in)):
+        d_in[i] = 2 * d_in[i]
 
 # initialize a layer of blocks
 def init_layer(layer, new_layer, block_count, d_in, stride):
     assert(len(layer) == len(new_layer))
-
+    # middle numbers can be fiddled in anyway
+    # without affecting correctness
+    # d_in = [8,4,4,16]
+    # d_in = [16,8,8,32]
+    # d_in = [32,16,16,64]
+    # d_in = [64,32,32,128]
     init_bottleneck(layer[0], new_layer[0], d_in, stride)
     for i in range(1, block_count):
-        append(init_bottleneck(layer[i], new_layer[0], d_in, 1))
+        # d_in = [16,4,4,16]
+        # d_in = [32,8,8,32]
+        # d_in = [64,16,16,64]
+        # d_in = [128,32,32,128]
+        d_in[0] = d_in[-1]
+        append(init_bottleneck(layer[i], new_layer[0], d_in, d_in, 1))
 
 # modify resnet to include additional channels
 def modify_resnet():
@@ -272,10 +287,16 @@ def modify_resnet():
     init_conv(resnet.conv1, iresnet.conv1, 1, d_in)
     init_bn(resnet.bn1, iresnet.bn1, d_in)
 
-    init_layer(resnet.layer1, iresnet.layer1, layers[1], 1 * d_in, stride=1)
-    init_layer(resnet.layer2, iresnet.layer2, layers[2], 4 * d_in, stride=2)
-    init_layer(resnet.layer3, iresnet.layer3, layers[3], 16 * d_in, stride=2)
-    init_layer(resnet.layer4, iresnet.layer4, layers[4], 64 * d_in, stride=2)
+    d_in = [4,2,2,8]
+
+    doub(d_in)
+    init_layer(resnet.layer1, iresnet.layer1, layers[1],d_in, stride=1)
+    doub(d_in)
+    init_layer(resnet.layer2, iresnet.layer2, layers[2], d_in, stride=2)
+    doub(d_in)
+    init_layer(resnet.layer3, iresnet.layer3, layers[3], d_in, stride=2)
+    doub(d_in)
+    init_layer(resnet.layer4, iresnet.layer4, layers[4], d_in, stride=2)
 
     return iresnet
 

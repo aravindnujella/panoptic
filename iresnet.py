@@ -105,7 +105,7 @@ class iResNet(nn.Module):
         ds = [d, d // 2, d // 2, 2 * d]
 
         downsample = nn.Sequential(
-            iconv(self.inplanes + ds[0], planes * block.expansion, ds[-1], kernel_size=1, stride=stride),
+            iconv(self.inplanes + ds[0], planes * block.expansion, ds[-1], kernel_size=1, stride=stride, bias=False),
             ibn(planes * block.expansion, ds[-1]),
         )
 
@@ -121,8 +121,8 @@ class iResNet(nn.Module):
     def forward(self, x):
         x = self.conv1(x)
         x = self.bn1(x)
-
         x = self.relu(x)
+
         x = self.maxpool(x)
 
         x = self.layer1(x)
@@ -263,6 +263,6 @@ if __name__ == '__main__':
 
     iresnet = iresnet.cuda()
     resnet = resnet.cuda()
-    eq = (iresnet(inp)[:,:-64,:,:] == resnet_conv(resnet, img))
-    print(torch.sum(eq))
+    neq = (iresnet(inp)[:,:2048,:,:] == resnet_conv(resnet, img))
+    print(torch.sum(neq))
     print(iresnet(inp).shape)

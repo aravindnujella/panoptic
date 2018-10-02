@@ -82,7 +82,7 @@ class iBottleneck(nn.Module):
 
 class iResNet(nn.Module):
 
-    def __init__(self, block, block_counts, d=4, ichannels=1):
+    def __init__(self, block, block_counts, ichannels=1, d=4):
         super(iResNet, self).__init__()
         self.inplanes = 64
         self.d = d
@@ -182,7 +182,7 @@ def init_bottleneck(iblock, block, ds):
         init_bn(iblock.downsample[1], block.downsample[1], s)
     else:
         assert(p == s)
-        block.downsample = None
+        iblock.downsample = None
 
     init_conv(iblock.conv1, block.conv1, p, q)
     init_bn(iblock.bn1, block.bn1, q)
@@ -216,57 +216,176 @@ def init_pretrained(iresnet, resnet):
     init_layer(iresnet.layer3, resnet.layer3, block_counts[3], 4 * d)
     init_layer(iresnet.layer4, resnet.layer4, block_counts[4], 8 * d)
 
-def resnet_conv(resnet, x):
-    x = resnet.conv1(x)
-    x = resnet.bn1(x)
-    x = resnet.relu(x)
-    x = resnet.maxpool(x)
 
-    x = resnet.layer1(x)
-    x = resnet.layer2(x)
-    x = resnet.layer3(x)
-    x = resnet.layer4(x)
-
-    return x
-
-if __name__ == '__main__':
-
-    from PIL import Image
-    img = Image.open("./data/1.png").convert('RGB')
-    img = np.array(img, np.float32)
-
-    mu = np.array(
-        [0.485, 0.456, 0.406], dtype=np.float32).reshape(1, 1, -1)
-    sig = np.array(
-        [0.229, 0.224, 0.225], dtype=np.float32).reshape(1, 1, -1)
-
-    img /= 255
-    img -= mu
-    img /= sig
-
-    img = np.moveaxis(img, 2, 0)
-    img = np.expand_dims(img, 0)
-
-    img = torch.Tensor(img)
-
-    impulse = torch.zeros(img.shape[-2:]).unsqueeze(0).unsqueeze(0)
-
-    inp = torch.cat([img, impulse], 1)
-
-    img = img.cuda()
-    inp = inp.cuda()
+# In[74]:
 
 
-    iresnet = iResNet(iBottleneck, [0, 3, 4, 23, 3], 4)
+class Bottleneck(nn.Module):
+    expansion = 4
 
-    resnet = models.resnet101(pretrained=True)
-    init_pretrained(iresnet, resnet)
+    def __init__(self, inplanes, planes, stride=1, downsample=None):
+        super(Bottleneck, self).__init__()
+        self.conv1 = nn.Conv2d(inplanes, planes, kernel_size=1, bias=False)
+        self.bn1 = nn.BatchNorm2d(planes)
+        self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=stride,
+                               padding=1, bias=False)
+        self.bn2 = nn.BatchNorm2d(planes)
+        self.conv3 = nn.Conv2d(planes, planes * self.expansion, kernel_size=1, bias=False)
+        self.bn3 = nn.BatchNorm2d(planes * self.expansion)
+        self.relu = nn.ReLU(inplace=True)
+        self.downsample = downsample
+        self.stride = stride
 
-    iresnet = iresnet.cuda()
-    resnet = resnet.cuda()
+    def forward(self, x):
+        residual = x
 
-    neq = (iresnet(inp)[:,:2048,:,:] != resnet_conv(resnet, img))
-    print(torch.sum(neq))
-    print(iresnet(inp).shape)
-    print(iresnet(inp)[0,0,:,:])
-    print(resnet_conv(resnet, img)[0,0,:,:])
+        out = self.conv1(x)
+        out = self.bn1(out)
+        out = self.relu(out)
+
+        out = self.conv2(out)
+        out = self.bn2(out)
+        out = self.relu(out)
+
+        out = self.conv3(out)
+        out = self.bn3(out)
+
+        if self.downsample is not None:
+            residual = self.downsample(x)
+
+        out += residual
+        out = self.relu(out)
+
+        return out
+
+
+class ResNet(nn.Module):
+
+    def __init__(self, block, layers, num_classes=1000):
+        self.inplanes = 64
+        super(ResNet, self).__init__()
+        self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3,
+                               bias=False)
+        self.bn1 = nn.BatchNorm2d(64)
+        self.relu = nn.ReLU(inplace=True)
+        self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
+        self.layer1 = self._make_layer(block, 64, layers[0])
+        self.layer2 = self._make_layer(block, 128, layers[1], stride=2)
+        self.layer3 = self._make_layer(block, 256, layers[2], stride=2)
+        self.layer4 = self._make_layer(block, 512, layers[3], stride=2)
+        self.avgpool = nn.AvgPool2d(7, stride=1)
+        self.fc = nn.Linear(512 * block.expansion, num_classes)
+
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+            elif isinstance(m, nn.BatchNorm2d):
+                nn.init.constant_(m.weight, 1)
+                nn.init.constant_(m.bias, 0)
+
+    def _make_layer(self, block, planes, blocks, stride=1):
+        downsample = None
+        if stride != 1 or self.inplanes != planes * block.expansion:
+            downsample = nn.Sequential(
+                nn.Conv2d(self.inplanes, planes * block.expansion,
+                          kernel_size=1, stride=stride, bias=False),
+                nn.BatchNorm2d(planes * block.expansion),
+            )
+
+        layers = []
+        layers.append(block(self.inplanes, planes, stride, downsample))
+        self.inplanes = planes * block.expansion
+        for i in range(1, blocks):
+            layers.append(block(self.inplanes, planes))
+
+        return nn.Sequential(*layers)
+
+    def forward(self, x):
+        x = self.conv1(x)
+        x = self.bn1(x)
+        x = self.relu(x)
+        x = self.maxpool(x)
+
+        x = self.layer1(x)
+        x = self.layer2(x)
+        x = self.layer3(x)
+        x = self.layer4(x)
+
+#         x = self.avgpool(x)
+#         x = x.view(x.size(0), -1)
+#         x = self.fc(x)
+
+        return x
+def resnet101():
+    model = ResNet(Bottleneck, [3, 4, 23, 3])
+    model.load_state_dict(model_zoo.load_url(model_urls['resnet101']))
+    return model
+
+
+# In[75]:
+
+
+# main
+from PIL import Image
+img = Image.open("./data/0.png").convert('RGB')
+img = np.array(img, np.float32)
+
+mu = np.array(
+    [0.485, 0.456, 0.406], dtype=np.float32).reshape(1, 1, -1)
+sig = np.array(
+    [0.229, 0.224, 0.225], dtype=np.float32).reshape(1, 1, -1)
+
+img /= 255
+img -= mu
+img /= sig
+
+img = np.moveaxis(img, 2, 0)
+img = np.expand_dims(img, 0)
+
+img = torch.Tensor(img)
+
+impulse = torch.zeros(img.shape[-2:]).unsqueeze(0).unsqueeze(0)
+
+inp = torch.cat([img, impulse], 1)
+
+img = img.cuda()
+inp = inp.cuda()
+
+
+iresnet = iResNet(iBottleneck, [0, 3, 4, 23, 3], 1, 4)
+
+resnet = resnet101()
+init_pretrained(iresnet, resnet)
+
+iresnet = iresnet.cuda()
+resnet = resnet.cuda()
+neq = (iresnet(inp)[:,:2048,:,:] != resnet(img))
+print(torch.sum(neq))
+print(iresnet(inp).shape)
+
+
+# In[45]:
+
+
+x = iresnet(inp)
+y = resnet(img)
+
+
+# In[46]:
+
+
+x[0,0,:,:]
+
+
+# In[47]:
+
+
+y[0,0,:,:]
+
+
+# In[48]:
+
+
+for i in range(64):
+    print((x[0,i,:,:] != y[0,i,:,:]).sum())
+

@@ -106,7 +106,7 @@ class iResNet(nn.Module):
         super(iResNet, self).__init__()
         self.conv1 = split_conv(3 + 1, 64, d, kernel_size=7, stride=2, padding=3,
                                 bias=False)
-        self.bn1 = split_bn(self.inplanes, d)
+        self.bn1 = split_bn(64, d)
         self.relu = nn.ReLU(inplace=True)
 
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
@@ -180,7 +180,7 @@ def init_conv(conv, mod_conv, d_in, d_out):
     cp_filter_weight = torch.cat([a, b], 1)
 
     # mod_conv = split_conv(old_in + d_in, old_out, d_out, kernel_size=kernel_size, stride=conv.stride, padding=conv.padding)
-
+    print(mod_conv.copy_conv.weight.shape, cp_filter_weight.shape)
     assert(mod_conv.copy_conv.weight.shape == cp_filter_weight.shape)
     assert(mod_conv.ignore_conv.weight.shape == ig_filter_weight.shape)
 
@@ -197,7 +197,7 @@ def init_bn(bn, mod_bn, d_in):
 
     old_in = bn.weight.shape[0]
     # mod_bn = split_bn(old_in, d_in)
-
+    print(old_in, mod_bn.ignore_bn.weight.shape[0])
     assert(old_in == mod_bn.ignore_bn.weight.shape[0])
 
     mod_bn.ignore_bn.running_var = bn.running_var
@@ -237,15 +237,15 @@ def init_bottleneck(block, new_block, d_in, stride):
     # new_block = Bottleneck(inplanes, planes, d_in, stride)
     p,q,r,s = d_in
     if block.downsample != None:
-        init_conv(block.downsample[0],downsample_conv, p, s)
-        init_bn(block.downsample[1], downsample_bn, s)
-        new_block.downsample = nn.Sequential(downsample_conv, downsample_bn,)
+        init_conv(block.downsample[0], new_block.downsample[0], p, s)
+        init_bn(block.downsample[1], new_block.downsample[1], s)
     else:
         # making sure that we can add pure residual
         assert(p == s)
         new_block.downsample = None
-    
+    print("hey")
     init_conv(block.conv1, new_block.conv1, p, q)
+    print("hey")
     init_bn(block.bn1, new_block.bn1, q)
     init_conv(block.conv2, new_block.conv2, q, r)
     init_bn(block.bn2, new_block.bn2, r)

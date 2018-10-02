@@ -4,7 +4,6 @@ import torch.utils.model_zoo as model_zoo
 import torchvision.models as models
 
 import numpy as np
-
 # __all__ = ['ResNet', 'resnet18', 'resnet34', 'resnet50', 'resnet101',
 #            'resnet152']
 
@@ -163,7 +162,7 @@ class iResNet(nn.Module):
 
 
 
-def init_conv(conv, d_in, d_out):
+def init_conv(conv, mod_conv, d_in, d_out):
     weight = conv.weight
     old_out = weight.shape[0]
     old_in = weight.shape[1]
@@ -180,24 +179,24 @@ def init_conv(conv, d_in, d_out):
     b = b.repeat([1, 1, kernel_size[0], kernel_size[1]]) / fan_in
     cp_filter_weight = torch.cat([a, b], 1)
 
-    mod_conv = split_conv(old_in + d_in, old_out, d_out, kernel_size=kernel_size, stride=conv.stride, padding=conv.padding)
+    # mod_conv = split_conv(old_in + d_in, old_out, d_out, kernel_size=kernel_size, stride=conv.stride, padding=conv.padding)
 
     assert(mod_conv.copy_conv.weight.shape == cp_filter_weight.shape)
     assert(mod_conv.ignore_conv.weight.shape == ig_filter_weight.shape)
 
     mod_conv.copy_conv.weight = nn.Parameter(cp_filter_weight)
     mod_conv.ignore_conv.weight = nn.Parameter(ig_filter_weight)
-    return mod_conv
+    # return mod_conv
 
 # init_bn takes bn module and d_in
 # returns split_bn module which normalizes old_in channels and d_in channels separately
 # old_in channels normalization parameters are initialized with bn parameters
 # d_in channels normalization parameters are initialized with mu = 0, var = 1, weight = 1, bias = 0
 
-def init_bn(bn, d_in):
+def init_bn(bn, mod_bn, d_in):
 
     old_in = bn.weight.shape[0]
-    mod_bn = split_bn(old_in, d_in)
+    # mod_bn = split_bn(old_in, d_in)
 
     assert(old_in == mod_bn.ignore_bn.weight.shape[0])
 
@@ -211,7 +210,7 @@ def init_bn(bn, d_in):
     nn.init.constant_(mod_bn.copy_bn.weight, 1)
     nn.init.constant_(mod_bn.copy_bn.bias, 0)
 
-    return mod_bn
+    # return mod_bn
 
 
 # initialize a single bottleneck block
@@ -228,37 +227,40 @@ def init_bn(bn, d_in):
 # downsample -> in_planes, 4 * planes => in_planes + d_in, 4 * planes + d_in
 # d_in parameter is doubled whenever number of planes are doubled.
 
-def init_bottleneck(block, d_in, stride):
+def init_bottleneck(block, new_block, p,q, stride):
 
     inplanes = block.conv1.weight.shape[1]
     planes = block.conv1.weight.shape[0]
 
-    new_block = Bottleneck(inplanes, planes, d_in, stride)
-    
-    new_block.conv1 = init_conv(block.conv1, d_in, d_in)
-    new_block.bn1 = init_bn(block.bn1, d_in)
-    new_block.conv2 = init_conv(block.conv2, d_in, d_in)
-    new_block.bn2 = init_bn(block.bn2, d_in)
-    new_block.conv3 = init_conv(block.conv3, d_in, d_in)
-    new_block.bn3 = init_bn(block.bn3, d_in)
-
+    # new_block = Bottleneck(inplanes, planes, d_in, stride)
+     
+    d_out = d_in
     if block.downsample != None:
-        downsample_conv = init_conv(block.downsample[0], d_in, d_in)
-        downsample_bn = init_bn(block.downsample[1], d_in)
+        d_out *= 4
+        init_conv(block.downsample[0],downsample_conv, d_in, d_out)
+        init_bn(block.downsample[1], downsample_bn, d_out)
         new_block.downsample = nn.Sequential(downsample_conv, downsample_bn,)
     else:
         new_block.downsample = None
+    
+    init_conv(block.conv1, new_block.conv1, d_in, d_out)
+    init_bn(block.bn1, new_block.bn1, d_out)
+    init_conv(block.conv2, new_block.conv2, d_out, d_out)
+    init_bn(block.bn2, new_block.bn2, d_out)
+    init_conv(block.conv3, new_block.conv3, d_out, d_out)
+    init_bn(block.bn3, new_block.bn3, d_out)
 
-    return new_block
+
+    # return new_block
 
 
 # initialize a layer of blocks
-def init_layer(layer, block_count, d_in, stride):
-    new_blocks = []
-    new_blocks.append(init_bottleneck(layer[0], d_in, stride))
+def init_layer(layer, new_layer, block_count, d_in, stride):
+    assert(len(layer) == len(new_layer))
+
+    init_bottleneck(layer[0], new_layer[0], d_in, stride)
     for i in range(1, block_count):
-        new_blocks.append(init_bottleneck(layer[i], d_in, 1))
-    return nn.Sequential(*new_blocks)
+        append(init_bottleneck(layer[i], new_layer[0], d_in, 1))
 
 # modify resnet to include additional channels
 def modify_resnet():
@@ -267,13 +269,13 @@ def modify_resnet():
     resnet = models.resnet101(pretrained=True)
     iresnet = iResNet(Bottleneck, layers, d_in)
 
-    iresnet.conv1 = init_conv(resnet.conv1, 1, d_in)
-    iresnet.bn1 = init_bn(resnet.bn1, d_in)
+    init_conv(resnet.conv1, iresnet.conv1, 1, d_in)
+    init_bn(resnet.bn1, iresnet.bn1, d_in)
 
-    iresnet.layer1 = init_layer(resnet.layer1, layers[1], 1 * d_in, stride=1)
-    iresnet.layer2 = init_layer(resnet.layer2, layers[2], 4 * d_in, stride=2)
-    iresnet.layer3 = init_layer(resnet.layer3, layers[3], 16 * d_in, stride=2)
-    iresnet.layer4 = init_layer(resnet.layer4, layers[4], 64 * d_in, stride=2)
+    init_layer(resnet.layer1, iresnet.layer1, layers[1], 1 * d_in, stride=1)
+    init_layer(resnet.layer2, iresnet.layer2, layers[2], 4 * d_in, stride=2)
+    init_layer(resnet.layer3, iresnet.layer3, layers[3], 16 * d_in, stride=2)
+    init_layer(resnet.layer4, iresnet.layer4, layers[4], 64 * d_in, stride=2)
 
     return iresnet
 

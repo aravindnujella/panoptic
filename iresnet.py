@@ -82,20 +82,23 @@ class iBottleneck(nn.Module):
 
 class iResNet(nn.Module):
 
-    def __init__(self, block, layers, d=4):
-        self.inplanes = 64
+    def __init__(self, block, block_counts, d=4, ichannels=1):
         super(iResNet, self).__init__()
-        self.conv1 = iconv(3 + 1, 64, d, kernel_size=7, stride=2, padding=3,
+        self.inplanes = 64
+        self.d = d
+        self.block_counts = block_counts
+        self.ichannels = ichannels
+        self.conv1 = iconv(3 + ichannels, 64, d, kernel_size=7, stride=2, padding=3,
                            bias=False)
         self.bn1 = ibn(64, d)
         self.relu = nn.ReLU(inplace=True)
 
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
 
-        self.layer1 = self._make_layer(block, 1 * 64, 1 * d, layers[1], stride=1)
-        self.layer2 = self._make_layer(block, 2 * 64, 2 * d, layers[2], stride=2)
-        self.layer3 = self._make_layer(block, 4 * 64, 4 * d, layers[3], stride=2)
-        self.layer4 = self._make_layer(block, 8 * 64, 8 * d, layers[4], stride=2)
+        self.layer1 = self._make_layer(block, 1 * 64, 1 * d, block_counts[1], stride=1)
+        self.layer2 = self._make_layer(block, 2 * 64, 2 * d, block_counts[2], stride=2)
+        self.layer3 = self._make_layer(block, 4 * 64, 4 * d, block_counts[3], stride=2)
+        self.layer4 = self._make_layer(block, 8 * 64, 8 * d, block_counts[4], stride=2)
 
     def _make_layer(self, block, planes, d, block_count, stride):
 
@@ -130,6 +133,101 @@ class iResNet(nn.Module):
         return x
 
 
+def init_conv(iconv, conv, d_in, d_out):
+    weight = conv.weight
+    old_out = weight.shape[0]
+    old_in = weight.shape[1]
+    kernel_size = weight.shape[2:]
+
+    c = torch.zeros((old_out, d_in) + kernel_size)
+    ig_filter_weight = torch.cat([weight, c], 1)
+
+    fan_in = kernel_size[0] * kernel_size[1]
+    a = torch.zeros((d_out, old_in,) + kernel_size)
+    b = torch.eye(d_out, d_in).unsqueeze(-1).unsqueeze(-1)
+    b = b.repeat([1, 1, kernel_size[0], kernel_size[1]]) / fan_in
+    cp_filter_weight = torch.cat([a, b], 1)
+
+    assert(iconv.copy_conv.weight.shape == cp_filter_weight.shape)
+    assert(iconv.ignore_conv.weight.shape == ig_filter_weight.shape)
+
+    iconv.copy_conv.weight = nn.Parameter(cp_filter_weight)
+    iconv.ignore_conv.weight = nn.Parameter(ig_filter_weight)
+
+def init_bn(ibn, bn, d_in):
+
+    old_in = bn.weight.shape[0]
+    assert(old_in == ibn.ignore_bn.weight.shape[0])
+
+    ibn.ignore_bn.running_var = bn.running_var
+    ibn.ignore_bn.running_mean = bn.running_mean
+    ibn.ignore_bn.weight = bn.weight
+    ibn.ignore_bn.bias = bn.bias
+
+    nn.init.constant_(ibn.copy_bn.running_var, 1)
+    nn.init.constant_(ibn.copy_bn.running_mean, 0)
+    nn.init.constant_(ibn.copy_bn.weight, 1)
+    nn.init.constant_(ibn.copy_bn.bias, 0)
+
+
+def init_bottleneck(iblock, block, ds):
+
+    inplanes = block.conv1.weight.shape[1]
+    planes = block.conv1.weight.shape[0]
+
+    p,q,r,s = ds
+    if block.downsample != None:
+        init_conv(iblock.downsample[0], block.downsample[0], p, s)
+        init_bn(iblock.downsample[1], block.downsample[1], s)
+    else:
+        assert(p == s)
+        block.downsample = None
+
+    init_conv(iblock.conv1, block.conv1, p, q)
+    init_bn(iblock.bn1, block.bn1, q)
+    init_conv(iblock.conv2, block.conv2, q, r)
+    init_bn(iblock.bn2, block.bn2, r)
+    init_conv(iblock.conv3, block.conv3, r, s)
+    init_bn(iblock.bn3, block.bn3, s)
+
+
+def init_layer(ilayer, layer, block_count, d):
+    assert(len(ilayer) == len(layer))
+    # !! repeated logic
+    ds = [d, d // 2, d // 2, 2 * d]
+    init_bottleneck(ilayer[0], layer[0], ds)
+    ds[0] = ds[-1]
+    for i in range(1, block_count):
+        init_bottleneck(ilayer[i], layer[i], ds)
+
+
+def init_pretrained(iresnet, resnet):
+
+    d = iresnet.d
+    block_counts = iresnet.block_counts
+    ichannels = iresnet.ichannels
+
+    init_conv(iresnet.conv1, resnet.conv1, ichannels, d)
+    init_bn(iresnet.bn1, resnet.bn1, d)
+
+    init_layer(iresnet.layer1, resnet.layer1, block_counts[1], 1 * d)
+    init_layer(iresnet.layer2, resnet.layer2, block_counts[2], 2 * d)
+    init_layer(iresnet.layer3, resnet.layer3, block_counts[3], 4 * d)
+    init_layer(iresnet.layer4, resnet.layer4, block_counts[4], 8 * d)
+
+def resnet_conv(resnet, x):
+    x = resnet.conv1(x)
+    x = resnet.bn1(x)
+    x = resnet.relu(x)
+    x = resnet.maxpool(x)
+
+    x = resnet.layer1(x)
+    x = resnet.layer2(x)
+    x = resnet.layer3(x)
+    x = resnet.layer4(x)
+
+    return x
+
 if __name__ == '__main__':
 
     from PIL import Image
@@ -153,9 +251,18 @@ if __name__ == '__main__':
     impulse = torch.zeros(img.shape[-2:]).unsqueeze(0).unsqueeze(0)
 
     inp = torch.cat([img, impulse], 1)
+
+    img = img.cuda()
     inp = inp.cuda()
 
-    iresnet = iResNet(iBottleneck, [0, 3, 4, 23, 3], 4)
-    iresnet = iresnet.cuda()
 
+    iresnet = iResNet(iBottleneck, [0, 3, 4, 23, 3], 4)
+
+    resnet = models.resnet101(pretrained=True)
+    init_pretrained(iresnet, resnet)
+
+    iresnet = iresnet.cuda()
+    resnet = resnet.cuda()
+    eq = (iresnet(inp)[:,:-64,:,:] == resnet_conv(resnet, img))
+    print(torch.sum(eq))
     print(iresnet(inp).shape)

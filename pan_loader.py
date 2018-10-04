@@ -16,6 +16,7 @@ nan = float('nan')
 
 
 class CocoDetection(data.Dataset):
+
     def __init__(self, img_dir, seg_dir, ann, config):
         self.img_dir = img_dir
         self.seg_dir = seg_dir
@@ -199,6 +200,21 @@ class CocoDetection(data.Dataset):
         return len(self.coco_data)
 
 
+def collate_fn(batch):
+    batch = filter(lambda x: x is not None, batch)    
+    return default_collate(batch)
+
+
+def get_loader(img_dir, seg_dir, ann, config):
+    coco_dataset = CocoDataset(img_dir, seg_dir, ann, config)
+    data_loader = torch.utils.data.DataLoader(dataset=coco_dataset,
+                                              batch_size=config.BATCH_SIZE,
+                                              collate_fn=_collate_fn,
+                                              shuffle=True,
+                                              pin_memory=config.PIN_MEMORY,
+                                              num_workers=config.NUM_WORKERS
+                                              )
+    return data_loader
 
 if __name__ == '__main__':
     import base_config
@@ -212,16 +228,15 @@ if __name__ == '__main__':
     val_img_dir = data_dir + "val2017/"
     val_seg_dir = ann_dir + "panoptic_val2017/"
     val_ann_json = ann_dir + "panoptic_val2017.json"
-    
-    with open(val_ann_json,"r") as f:
-        val_ann = json.load(f)
 
+    with open(val_ann_json, "r") as f:
+        val_ann = json.load(f)
 
     val_dataset = CocoDetection(val_img_dir, val_seg_dir, val_ann, config)
 
     l = len(val_dataset)
     index = random.choice(list(range(len(val_dataset))))
-    
+
     img, impulses, instance_masks, cat_ids = val_dataset[index]
 
     visualize.visualize_targets(img, instance_masks, cat_ids, impulses, config)

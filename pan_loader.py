@@ -133,10 +133,6 @@ class CocoDetection(data.Dataset):
             impulses.append(impulse)
 
         impulses = np.array(impulses)
-        # work this shit out
-        # place an impulse around peak response
-        # => one impulse/instance
-        # write custom collate %%later
         return img, impulses, instance_masks, cat_ids
 
     def rgb2id(self, color):
@@ -203,15 +199,31 @@ class CocoDetection(data.Dataset):
         return len(self.coco_data)
 
 
+
 if __name__ == '__main__':
+    import base_config
+    import visualize
+
+    config = base_config.Config()
+
     data_dir = "/home/aravind/dataset/"
     ann_dir = data_dir + "annotations/panoptic/"
-
-    # train_img_dir = data_dir + "train2017/"
-    # train_seg_dir = ann_dir + "panoptic_train2017/"
-    # train_ann_json = ann_dir + "panoptic_train2017.json"
 
     val_img_dir = data_dir + "val2017/"
     val_seg_dir = ann_dir + "panoptic_val2017/"
     val_ann_json = ann_dir + "panoptic_val2017.json"
+    
+    with open(val_ann_json,"r") as f:
+        val_ann = json.load(f)
 
+
+    val_dataset = CocoDetection(val_img_dir, val_seg_dir, val_ann, config)
+
+    l = len(val_dataset)
+    index = random.choice(list(range(len(val_dataset))))
+    
+    img, impulses, instance_masks, cat_ids = val_dataset[index]
+
+    visualize.visualize_targets(img, instance_masks, cat_ids, impulses, config)
+
+    print(index)

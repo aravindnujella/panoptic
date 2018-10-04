@@ -1,6 +1,6 @@
 import numpy as np
 
-class ProposalConfig():
+class Config():
     NAME = "InSegm"
     GPU_COUNT = 1
     # online training
@@ -76,5 +76,5 @@ class ProposalConfig():
         print("\n")
 
 if __name__ == '__main__':
-    config = ProposalConfig()
+    config = Config()
     config.display()

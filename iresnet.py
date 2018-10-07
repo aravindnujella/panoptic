@@ -216,20 +216,29 @@ def init_pretrained(iresnet, resnet):
     init_layer(iresnet.layer3, resnet.layer3, block_counts[3], 4 * d)
     init_layer(iresnet.layer4, resnet.layer4, block_counts[4], 8 * d)
 
-def resnet_conv(resnet, x):
-    x = resnet.conv1(x)
-    x = resnet.bn1(x)
-    x = resnet.relu(x)
-    x = resnet.maxpool(x)
 
-    x = resnet.layer1(x)
-    x = resnet.layer2(x)
-    x = resnet.layer3(x)
-    x = resnet.layer4(x)
-
-    return x
+def iresnet101(pretrained=False):
+    block_counts = [0, 3, 4, 23, 3]
+    iresnet = iResNet(iBottleneck, block_counts, 4)
+    resnet = models.resnet101(pretrained=True)
+    if pretrained:
+        init_pretrained(iresnet, resnet)
+    return iresnet
 
 if __name__ == '__main__':
+
+    def resnet_conv(resnet, x):
+        x = resnet.conv1(x)
+        x = resnet.bn1(x)
+        x = resnet.relu(x)
+        x = resnet.maxpool(x)
+
+        x = resnet.layer1(x)
+        x = resnet.layer2(x)
+        x = resnet.layer3(x)
+        x = resnet.layer4(x)
+
+        return x
 
     from PIL import Image
     img = Image.open("./data/1.png").convert('RGB')

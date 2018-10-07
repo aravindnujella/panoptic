@@ -15,7 +15,7 @@ inf = float('inf')
 nan = float('nan')
 
 
-class CocoDetection(data.Dataset):
+class CocoDataset(data.Dataset):
 
     def __init__(self, img_dir, seg_dir, ann, config):
         self.img_dir = img_dir
@@ -209,7 +209,7 @@ def get_loader(img_dir, seg_dir, ann, config):
     coco_dataset = CocoDataset(img_dir, seg_dir, ann, config)
     data_loader = torch.utils.data.DataLoader(dataset=coco_dataset,
                                               batch_size=config.BATCH_SIZE,
-                                              collate_fn=_collate_fn,
+                                              collate_fn=collate_fn,
                                               shuffle=True,
                                               pin_memory=config.PIN_MEMORY,
                                               num_workers=config.NUM_WORKERS
@@ -232,7 +232,7 @@ if __name__ == '__main__':
     with open(val_ann_json, "r") as f:
         val_ann = json.load(f)
 
-    val_dataset = CocoDetection(val_img_dir, val_seg_dir, val_ann, config)
+    val_dataset = CocoDataset(val_img_dir, val_seg_dir, val_ann, config)
 
     l = len(val_dataset)
     index = random.choice(list(range(len(val_dataset))))

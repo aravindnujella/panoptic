@@ -5,7 +5,7 @@ import loss
 
 
 import torch
-import torch.nn.optim as optim.mom
+import torch.optim as optim
 
 from optparse import OptionParser
 
@@ -45,7 +45,9 @@ def main():
                 loss2 = 0.0
     print('Finished Training')
 if __name__ == '__main__':
-    dataset = 
+    
+    
+    dataset =  
 
 
     main()

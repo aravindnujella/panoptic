@@ -52,9 +52,9 @@ class mask_branch(nn.Module):
         block = Bottleneck
         planes = 256
         e = block.expansion
-        self.layer5 = self._make_layer(block, inplanes=2048 + 64, planes=planes // 1, bc5)
-        self.layer4 = self._make_layer(block, inplanes=1024 + e * planes // 1, planes=planes // 2, bc4)
-        self.layer3 = self._make_layer(block, inplanes=512 + e * planes // 2, planes=planes // 4, bc3)
+        self.layer5 = self._make_layer(block, inplanes=2048 + 64, planes=planes // 1, bc=bc5)
+        self.layer4 = self._make_layer(block, inplanes=1024 + e * planes // 1, planes=planes // 2, bc=bc4)
+        self.layer3 = self._make_layer(block, inplanes=512 + e * planes // 2, planes=planes // 4, bc=bc3)
 
     def forward(self, x):
         l3, l4, l5 = m
@@ -104,15 +104,17 @@ class class_branch(nn.Module):
         x = self.fc(x)
         return x
 
+    def _make_layer(self):
+        return None
 
 class hgmodel(nn.Module):
 
     def __init__(self):
         super(hgmodel, self).__init__()
-        self.iresnet1 = iresnet.iresnet101(pretrained=True)
-        self.iresnet2 = iresnet.iresnet101(pretrained=True)
-        self.mb0 = mask_branch()
-        self.mb1 = mask_branch()
+        self.iresnet1 = iresnet.iresnet101(pretrained=False)
+        self.iresnet2 = iresnet.iresnet101(pretrained=False)
+        self.mb0 = mask_branch([3,3,3])
+        self.mb1 = mask_branch([3,3,3])
         self.cb = class_branch()
 
     # TOTO: Copy from single-object-detection

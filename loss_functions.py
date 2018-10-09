@@ -30,8 +30,8 @@ def balanced_bce(pred, gt):
 # Easy example selection: takes tensor of losses and returns least n% of the losses
 
 
-def select_easy(L, frac=1):
-    return L
+def select_easy(l, frac=1):
+    return l
     # sort(L)
     # l = math.ceil(len(L) * frac)
     # return L[:l]

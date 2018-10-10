@@ -2,6 +2,7 @@ import numpy as np
 import random
 import torch
 import torch.utils.data as data
+import torch.utils.data.dataloader as dataloader
 from PIL import Image
 from PIL import Image, ImageFont, ImageDraw, ImageEnhance
 
@@ -41,7 +42,7 @@ class CocoDataset(data.Dataset):
 
         return list(d.values())
 
-    # coco category ids remapped to contigous range(133+1)
+    # coco category ids remapped to contiguous range(133+1)
     def build_cat_map(self):
         config = self.config
         coco_cat_ids = config.CAT_IDS
@@ -52,23 +53,23 @@ class CocoDataset(data.Dataset):
 
     def __getitem__(self, index):
 
-        try:
-            # 0. read coco data as is; if no instances of required criteria then
-            # return None and filter in collate
-            data = self.load_data(index)
+        # try:
+        # 0. read coco data as is; if no instances of required criteria then
+        # return None and filter in collate
+        data = self.load_data(index)
 
-            # 1. remove unwanted data
-            # 2. fixed resolution.
-            # 3. split stuff islands into different instances
-            # 4. Data Augmentation: skipped for now
-            data = self.standardize_data(*data)
+        # 1. remove unwanted data
+        # 2. fixed resolution.
+        # 3. split stuff islands into different instances
+        # 4. Data Augmentation: skipped for now
+        data = self.standardize_data(*data)
 
-            # 4. Target generation:
-            return self.generate_targets(*data)
+        # 4. Target generation:
+        return self.generate_targets(*data)
 
-        except:
-            print("problem loading image index: %d" % index)
-            return None
+        # except:
+        #     print("problem loading image index: %d" % index)
+        #     return None
 
     def load_data(self, index):
         coco_data = self.coco_data
@@ -81,7 +82,7 @@ class CocoDataset(data.Dataset):
         segments_info = ann['segments_info']
         segments_file = ann['segments_file']
         image_file = ann['image_file']
-        print(image_id)
+        # print(image_id)
         img = Image.open(os.path.join(self.img_dir, image_file)).convert('RGB')
         img = np.array(img)
 
@@ -155,23 +156,24 @@ class CocoDataset(data.Dataset):
         # that might be split due to noisy annotation
         lp_filter = np.ones((5, 5))
 
+        islands = []
+        island_cat_ids = []
         for mask, stuff_id in zip(stuff_masks, stuff_ids):
             smooth_mask = convolve(mask, lp_filter, mode='constant', cval=0.0)
             smooth_mask = np.where(smooth_mask > 12, 1, 0)
 
             labelled_islands, num_islands = label(
                 smooth_mask, structure=np.ones((3, 3)))
-            islands = []
-            island_cat_ids = []
             for i in range(num_islands):
                 island = np.where(labelled_islands == i + 1, 1, 0)
                 if np.sum(island) > self.config.MIN_STUFF_AREA:
                     islands.append(island)
                     island_cat_ids.append(stuff_id)
-            islands = np.array(islands)
-            island_cat_ids = np.array(island_cat_ids)
-            thing_masks = np.concatenate([thing_masks, islands], 0)
-            thing_ids = np.concatenate([thing_ids, island_cat_ids], 0)
+        islands = np.array(islands)
+        island_cat_ids = np.array(island_cat_ids)
+        print(thing_masks.shape, islands.shape)
+        thing_masks = np.concatenate([thing_masks, islands], 0)
+        thing_ids = np.concatenate([thing_ids, island_cat_ids], 0)
 
         return thing_masks, thing_ids
 
@@ -201,13 +203,14 @@ class CocoDataset(data.Dataset):
 
 
 def collate_fn(batch):
-    batch = filter(lambda x: x is not None, batch)    
-    return default_collate(batch)
+    batch = list(filter(lambda x: x is not None, batch))
+
+    return dataloader.default_collate(batch)
 
 
 def get_loader(img_dir, seg_dir, ann, config):
     coco_dataset = CocoDataset(img_dir, seg_dir, ann, config)
-    data_loader = torch.utils.data.DataLoader(dataset=coco_dataset,
+    data_loader = data.DataLoader(dataset=coco_dataset,
                                               batch_size=config.BATCH_SIZE,
                                               collate_fn=collate_fn,
                                               shuffle=True,

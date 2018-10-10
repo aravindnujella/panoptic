@@ -109,8 +109,8 @@ class CocoDataset(data.Dataset):
         return img, instance_masks, cat_ids
 
     def standardize_data(self, img, instance_masks, cat_ids):
-        instance_masks, cat_ids = self.split_stuff_islands(
-            instance_masks, cat_ids)
+        # instance_masks, cat_ids = self.split_stuff_islands(
+        #     instance_masks, cat_ids)
         img, instance_masks = self.resize_data(img, instance_masks)
 
         # img, instance_masks, cat_ids = self.data_augment(img, instance_masks, cat_ids)
@@ -141,11 +141,20 @@ class CocoDataset(data.Dataset):
         return color[:, :,
                      0] + 256 * color[:, :, 1] + 256 * 256 * color[:, :, 2]
 
+    # remove this?
+    # - increases memory usage
+    # - potentially bad labels => remove some of artificially generated stuff
+    # ex: use the biggest stuff island for training
+    # + just a bit better when the stuff is spread into multiple modes  
+
     def split_stuff_islands(self, instance_masks, cat_ids):
         from scipy.ndimage import label, convolve
 
         thing_idx = np.nonzero(cat_ids <= 80)
         stuff_idx = np.nonzero(cat_ids > 80)
+
+        if stuff_idx.shape[0] == 0:
+            return instance_masks, cat_ids
 
         thing_ids = cat_ids[thing_idx]
         stuff_ids = cat_ids[stuff_idx]
@@ -154,14 +163,15 @@ class CocoDataset(data.Dataset):
 
         # this is to merge nearby stuff islands
         # that might be split due to noisy annotation
-        lp_filter = np.ones((5, 5))
+        # removing this because it is making masks worse
+        # lp_filter = np.ones((5, 5))
 
         islands = []
         island_cat_ids = []
         for mask, stuff_id in zip(stuff_masks, stuff_ids):
-            smooth_mask = convolve(mask, lp_filter, mode='constant', cval=0.0)
-            smooth_mask = np.where(smooth_mask > 12, 1, 0)
-
+            # smooth_mask = convolve(mask, lp_filter, mode='constant', cval=0.0)
+            # smooth_mask = np.where(smooth_mask > 12, 1, 0)
+            smooth_mask = mask
             labelled_islands, num_islands = label(
                 smooth_mask, structure=np.ones((3, 3)))
             for i in range(num_islands):
@@ -169,11 +179,11 @@ class CocoDataset(data.Dataset):
                 if np.sum(island) > self.config.MIN_STUFF_AREA:
                     islands.append(island)
                     island_cat_ids.append(stuff_id)
-        islands = np.array(islands)
-        island_cat_ids = np.array(island_cat_ids)
-        print(thing_masks.shape, islands.shape)
-        thing_masks = np.concatenate([thing_masks, islands], 0)
-        thing_ids = np.concatenate([thing_ids, island_cat_ids], 0)
+            islands = np.array(islands)
+            island_cat_ids = np.array(island_cat_ids)
+            print(thing_masks.shape, islands.shape)
+            thing_masks = np.concatenate([thing_masks, islands], 0)
+            thing_ids = np.concatenate([thing_ids, island_cat_ids], 0)
 
         return thing_masks, thing_ids
 
@@ -188,7 +198,7 @@ class CocoDataset(data.Dataset):
         return img, instance_masks
 
     def resize_image(self, img, size, mode):
-        interpolation = {"RGB": Image.BICUBIC, "L": Image.NEAREST}[mode]
+        interpolation = {"RGB": Image.ANTIALIAS, "L": Image.NEAREST}[mode]
         img_obj = Image.fromarray(img.astype(np.uint8), mode)
         img_obj.thumbnail(size, interpolation)
 
@@ -211,12 +221,12 @@ def collate_fn(batch):
 def get_loader(img_dir, seg_dir, ann, config):
     coco_dataset = CocoDataset(img_dir, seg_dir, ann, config)
     data_loader = data.DataLoader(dataset=coco_dataset,
-                                              batch_size=config.BATCH_SIZE,
-                                              collate_fn=collate_fn,
-                                              shuffle=True,
-                                              pin_memory=config.PIN_MEMORY,
-                                              num_workers=config.NUM_WORKERS
-                                              )
+                                  batch_size=config.BATCH_SIZE,
+                                  collate_fn=collate_fn,
+                                  shuffle=True,
+                                  pin_memory=config.PIN_MEMORY,
+                                  num_workers=config.NUM_WORKERS
+                                  )
     return data_loader
 
 if __name__ == '__main__':

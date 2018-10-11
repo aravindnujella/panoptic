@@ -53,23 +53,23 @@ class CocoDataset(data.Dataset):
 
     def __getitem__(self, index):
 
-        # try:
-        # 0. read coco data as is; if no instances of required criteria then
-        # return None and filter in collate
-        data = self.load_data(index)
+        try:
+            # 0. read coco data as is; if no instances of required criteria then
+            # return None and filter in collate
+            data = self.load_data(index)
 
-        # 1. remove unwanted data
-        # 2. fixed resolution.
-        # 3. split stuff islands into different instances
-        # 4. Data Augmentation: skipped for now
-        data = self.standardize_data(*data)
+            # 1. remove unwanted data
+            # 2. fixed resolution.
+            # 3. split stuff islands into different instances
+            # 4. Data Augmentation: skipped for now
+            data = self.standardize_data(*data)
 
-        # 4. Target generation:
-        return self.generate_targets(*data)
+            # 4. Target generation:
+            return self.generate_targets(*data)
 
-        # except:
-        #     print("problem loading image index: %d" % index)
-        #     return None
+        except:
+            print("problem loading image index: %d" % index)
+            return None
 
     def load_data(self, index):
         coco_data = self.coco_data
@@ -134,7 +134,8 @@ class CocoDataset(data.Dataset):
             impulse[p - iw:p + iw, q - ih:q + ih] = 1
             impulses.append(impulse)
 
-        impulses = np.array(impulses)
+        # impulses = np.array(impulses)
+        instance_masks = [mask for mask in instance_masks]
         return img, impulses, instance_masks, cat_ids
 
     def rgb2id(self, color):
@@ -145,21 +146,21 @@ class CocoDataset(data.Dataset):
     # - increases memory usage
     # - potentially bad labels => remove some of artificially generated stuff
     # ex: use the biggest stuff island for training
-    # + just a bit better when the stuff is spread into multiple modes  
-
+    # + just a bit better when the stuff has multiple modes
+    # or use better logic?
     def split_stuff_islands(self, instance_masks, cat_ids):
         from scipy.ndimage import label, convolve
 
         thing_idx = np.nonzero(cat_ids <= 80)
         stuff_idx = np.nonzero(cat_ids > 80)
 
-        if stuff_idx.shape[0] == 0:
-            return instance_masks, cat_ids
-
         thing_ids = cat_ids[thing_idx]
         stuff_ids = cat_ids[stuff_idx]
         thing_masks = instance_masks[thing_idx]
         stuff_masks = instance_masks[stuff_idx]
+
+        if stuff_ids.shape[0] == 0:
+            return instance_masks, cat_ids
 
         # this is to merge nearby stuff islands
         # that might be split due to noisy annotation
@@ -179,11 +180,11 @@ class CocoDataset(data.Dataset):
                 if np.sum(island) > self.config.MIN_STUFF_AREA:
                     islands.append(island)
                     island_cat_ids.append(stuff_id)
-            islands = np.array(islands)
-            island_cat_ids = np.array(island_cat_ids)
-            print(thing_masks.shape, islands.shape)
-            thing_masks = np.concatenate([thing_masks, islands], 0)
-            thing_ids = np.concatenate([thing_ids, island_cat_ids], 0)
+        islands = np.array(islands)
+        island_cat_ids = np.array(island_cat_ids)
+        # print(thing_masks.shape, islands.shape)
+        thing_masks = np.concatenate([thing_masks, islands], 0)
+        thing_ids = np.concatenate([thing_ids, island_cat_ids], 0)
 
         return thing_masks, thing_ids
 
@@ -198,7 +199,7 @@ class CocoDataset(data.Dataset):
         return img, instance_masks
 
     def resize_image(self, img, size, mode):
-        interpolation = {"RGB": Image.ANTIALIAS, "L": Image.NEAREST}[mode]
+        interpolation = {"RGB": Image.BICUBIC, "L": Image.NEAREST}[mode]
         img_obj = Image.fromarray(img.astype(np.uint8), mode)
         img_obj.thumbnail(size, interpolation)
 
@@ -212,11 +213,17 @@ class CocoDataset(data.Dataset):
         return len(self.coco_data)
 
 
+# custom collate function
+# images, impulses, instance_masks, cat_ids
+
 def collate_fn(batch):
     batch = list(filter(lambda x: x is not None, batch))
+    images = [item[0] for item in batch]
+    impulses = [item[1] for item in batch]
+    instance_masks = [item[2] for item in batch]
+    cat_ids = [item[3] for item in batch]
 
-    return dataloader.default_collate(batch)
-
+    return images, impulses, instance_masks, cat_ids
 
 def get_loader(img_dir, seg_dir, ann, config):
     coco_dataset = CocoDataset(img_dir, seg_dir, ann, config)

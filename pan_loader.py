@@ -60,8 +60,7 @@ class CocoDataset(data.Dataset):
 
             # 1. remove unwanted data
             # 2. fixed resolution.
-            # 3. split stuff islands into different instances
-            # 4. Data Augmentation: skipped for now
+            # 3. Data Augmentation: skipped for now
             data = self.standardize_data(*data)
 
             # 4. Target generation:
@@ -109,8 +108,6 @@ class CocoDataset(data.Dataset):
         return img, instance_masks, cat_ids
 
     def standardize_data(self, img, instance_masks, cat_ids):
-        # instance_masks, cat_ids = self.split_stuff_islands(
-        #     instance_masks, cat_ids)
         img, instance_masks = self.resize_data(img, instance_masks)
 
         # img, instance_masks, cat_ids = self.data_augment(img, instance_masks, cat_ids)
@@ -141,52 +138,6 @@ class CocoDataset(data.Dataset):
     def rgb2id(self, color):
         return color[:, :,
                      0] + 256 * color[:, :, 1] + 256 * 256 * color[:, :, 2]
-
-    # remove this?
-    # - increases memory usage
-    # - potentially bad labels => remove some of artificially generated stuff
-    # ex: use the biggest stuff island for training
-    # + just a bit better when the stuff has multiple modes
-    # or use better logic?
-    def split_stuff_islands(self, instance_masks, cat_ids):
-        from scipy.ndimage import label, convolve
-
-        thing_idx = np.nonzero(cat_ids <= 80)
-        stuff_idx = np.nonzero(cat_ids > 80)
-
-        thing_ids = cat_ids[thing_idx]
-        stuff_ids = cat_ids[stuff_idx]
-        thing_masks = instance_masks[thing_idx]
-        stuff_masks = instance_masks[stuff_idx]
-
-        if stuff_ids.shape[0] == 0:
-            return instance_masks, cat_ids
-
-        # this is to merge nearby stuff islands
-        # that might be split due to noisy annotation
-        # removing this because it is making masks worse
-        # lp_filter = np.ones((5, 5))
-
-        islands = []
-        island_cat_ids = []
-        for mask, stuff_id in zip(stuff_masks, stuff_ids):
-            # smooth_mask = convolve(mask, lp_filter, mode='constant', cval=0.0)
-            # smooth_mask = np.where(smooth_mask > 12, 1, 0)
-            smooth_mask = mask
-            labelled_islands, num_islands = label(
-                smooth_mask, structure=np.ones((3, 3)))
-            for i in range(num_islands):
-                island = np.where(labelled_islands == i + 1, 1, 0)
-                if np.sum(island) > self.config.MIN_STUFF_AREA:
-                    islands.append(island)
-                    island_cat_ids.append(stuff_id)
-        islands = np.array(islands)
-        island_cat_ids = np.array(island_cat_ids)
-        # print(thing_masks.shape, islands.shape)
-        thing_masks = np.concatenate([thing_masks, islands], 0)
-        thing_ids = np.concatenate([thing_ids, island_cat_ids], 0)
-
-        return thing_masks, thing_ids
 
     def resize_data(self, img, instance_masks):
         config = self.config

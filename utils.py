@@ -8,8 +8,14 @@ def cudify_list(l):
 
 def cudify_data(d):
     return [cudify_list(it) for it in d]
-    # images, impulses, instance_masks, cat_ids = d
-    # return cudify_list(images), 
+
+
+# def repeat_items(l, repeat):
+#     return [[it]*r for r in repeat]
+
+# def splice_data(images, impulses, instance_masks, cat_ids):
+#     repeat = [it.shape[0] for it in impulses]
+#     return splice_list(images, repeat), impulses, instance_masks        
 
 # rudimentary checkpointing
 # TODO: add load checkpoint??, add validation stats at the end of checkpoint

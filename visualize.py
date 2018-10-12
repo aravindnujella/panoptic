@@ -58,6 +58,11 @@ def create_labelled_image(img, mask, class_name):
 
 
 def visualize_targets(img, masks, class_ids, base_impulse, config):
+    img = np.moveaxis(img, 0, 2)
+    img *= config.STD_PIXEL
+    img += config.MEAN_PIXEL
+    img *= 255
+
     N = class_ids.shape[0]
     response_colors = random_colors(N)
     impulse_colors = random_colors(N)
@@ -70,7 +75,6 @@ def visualize_targets(img, masks, class_ids, base_impulse, config):
 
 
 def visualize_coco_data(img, masks, cat_ids, config):
-    g = config.GRID_SHAPE
 
     img = np.moveaxis(img, 0, 2)
     img *= config.STD_PIXEL

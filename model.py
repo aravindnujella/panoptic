@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 
 import iresnet
-
+import utils
 
 class Bottleneck(nn.Module):
     expansion = 4
@@ -119,8 +119,10 @@ class hgmodel(nn.Module):
 
     # TOTO: Copy from single-object-detection
     def forward(self, x):
-        img, impulse = x
-
+        # print(x[0][0].shape, x[1][0].shape)
+        # print(len(x[0]), len(x[1]))
+        img, impulse = self.unpack_imgs(x)
+        print(img.shape, impulse.shape)
         inp = torch.cat([img, impulse], 1)
         class_feats, mask_feats = self.iresnet1(inp)
         m0 = self.mb0(mask_feats)
@@ -131,3 +133,18 @@ class hgmodel(nn.Module):
 
         c = self.cb(class_feats)
         return c, m1
+
+
+    def unpack_imgs(self, x):
+        imgs, impulses = x
+        new_imgs = []
+        
+        for i,img in enumerate(imgs,0):
+            rep = impulses[i].shape[0]
+            img = torch.cat([img.unsqueeze(0)]*rep, 0)
+            new_imgs.append(img)
+        
+        new_impulses = [it.unsqueeze(1) for it in impulses]
+
+        return torch.cat(new_imgs,0).float(), torch.cat(new_impulses,0).float()
+

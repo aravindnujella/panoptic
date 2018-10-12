@@ -135,7 +135,13 @@ class CocoDataset(data.Dataset):
             impulses.append(impulse)
 
         impulses = np.array(impulses)
-        # instance_masks = [mask for mask in instance_masks]
+
+        # kind off out place. put in standardize_data??
+        img = img/255
+        img -= self.config.MEAN_PIXEL
+        img /= self.config.STD_PIXEL
+        img = np.moveaxis(img, 2, 0)
+
         return img, impulses, instance_masks, cat_ids
 
     def rgb2id(self, color):
@@ -172,28 +178,17 @@ class CocoDataset(data.Dataset):
 # this is because impulses, instance_masks are of variable size and 
 # cannot be concatenated. also if we dont do this, we have to send dummy masks
 # or replicate image to fit dimensions of impulses,
-# 
-# 
+
 # images, impulses, instance_masks, cat_ids
 
 def collate_fn(batch):
     batch = list(filter(lambda x: x is not None, batch))
 
-    print(len(batch[0]))
     z = []
     for i in range(len(batch[0])):
         z.append([item[i] for item in batch])
 
     return z
-    # images, impulses, instance_masks, cat_ids = z
-
-    # images = [item[0] for item in batch]
-    # impulses = [item[1] for item in batch]
-    # instance_masks = [item[2] for item in batch]
-    # cat_ids = [item[3] for item in batch]
-
-    # return images, impulses, instance_masks, cat_ids
-    # return batch
 
 def get_loader(img_dir, seg_dir, ann, config):
     coco_dataset = CocoDataset(img_dir, seg_dir, ann, config)

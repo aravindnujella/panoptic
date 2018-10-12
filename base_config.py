@@ -4,7 +4,7 @@ class Config():
     NAME = "InSegm"
     GPU_COUNT = 1
     # online training
-    IMAGES_PER_GPU = 16
+    IMAGES_PER_GPU = 1
     STEPS_PER_EPOCH = 100
     NUM_WORKERS = 16
     # we always PIN_MEMORY!!

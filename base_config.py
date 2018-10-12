@@ -7,7 +7,8 @@ class Config():
     IMAGES_PER_GPU = 16
     STEPS_PER_EPOCH = 100
     NUM_WORKERS = 16
-    PIN_MEMORY = True
+    # we always PIN_MEMORY!!
+    # PIN_MEMORY = True
     VALIDATION_STEPS = 20
 
     CAT_NAMES = ['BG'] + [

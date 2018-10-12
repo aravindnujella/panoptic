@@ -82,15 +82,18 @@ class CocoDataset(data.Dataset):
         segments_file = ann['segments_file']
         image_file = ann['image_file']
         # print(image_id)
-        img = Image.open(os.path.join(self.img_dir, image_file)).convert('RGB')
-        img = np.array(img)
+        img_file = Image.open(os.path.join(self.img_dir, image_file))
+        img = np.array(img_file.convert('RGB'))
+        img_file.close()
 
         instance_masks = []
         cat_ids = []
 
-        coco_seg = Image.open(os.path.join(self.seg_dir,
-                                           segments_file)).convert('RGB')
-        coco_seg = np.array(coco_seg, dtype=np.uint8)
+        coco_seg_file = Image.open(os.path.join(self.seg_dir,
+                                           segments_file))
+        coco_seg = np.array(coco_seg_file.convert('RGB'), dtype=np.uint8)
+        coco_seg_file.close()
+
         seg_id = self.rgb2id(coco_seg)
 
         ignore_cat_ids = np.array(config.IGNORE_CAT_IDS)
@@ -131,8 +134,8 @@ class CocoDataset(data.Dataset):
             impulse[p - iw:p + iw, q - ih:q + ih] = 1
             impulses.append(impulse)
 
-        # impulses = np.array(impulses)
-        instance_masks = [mask for mask in instance_masks]
+        impulses = np.array(impulses)
+        # instance_masks = [mask for mask in instance_masks]
         return img, impulses, instance_masks, cat_ids
 
     def rgb2id(self, color):
@@ -165,16 +168,32 @@ class CocoDataset(data.Dataset):
 
 
 # custom collate function
+# instead of using torch.cat, we return as list.
+# this is because impulses, instance_masks are of variable size and 
+# cannot be concatenated. also if we dont do this, we have to send dummy masks
+# or replicate image to fit dimensions of impulses,
+# 
+# 
 # images, impulses, instance_masks, cat_ids
 
 def collate_fn(batch):
     batch = list(filter(lambda x: x is not None, batch))
-    images = [item[0] for item in batch]
-    impulses = [item[1] for item in batch]
-    instance_masks = [item[2] for item in batch]
-    cat_ids = [item[3] for item in batch]
 
-    return images, impulses, instance_masks, cat_ids
+    print(len(batch[0]))
+    z = []
+    for i in range(len(batch[0])):
+        z.append([item[i] for item in batch])
+
+    return z
+    # images, impulses, instance_masks, cat_ids = z
+
+    # images = [item[0] for item in batch]
+    # impulses = [item[1] for item in batch]
+    # instance_masks = [item[2] for item in batch]
+    # cat_ids = [item[3] for item in batch]
+
+    # return images, impulses, instance_masks, cat_ids
+    # return batch
 
 def get_loader(img_dir, seg_dir, ann, config):
     coco_dataset = CocoDataset(img_dir, seg_dir, ann, config)
@@ -182,7 +201,7 @@ def get_loader(img_dir, seg_dir, ann, config):
                                   batch_size=config.BATCH_SIZE,
                                   collate_fn=collate_fn,
                                   shuffle=True,
-                                  pin_memory=config.PIN_MEMORY,
+                                  # pin_memory=config.PIN_MEMORY,
                                   num_workers=config.NUM_WORKERS
                                   )
     return data_loader

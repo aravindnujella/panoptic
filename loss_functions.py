@@ -1,9 +1,23 @@
+import torch
+import torch.nn as nn
+
+# 
+def loss_criterion1(pred, gt):
+    pred_masks, pred_class = pred
+    mask_loss = soft_iou(pred_masks, gt_masks)
+    mask_loss = mask_loss.mean()
+
+    gt_masks, gt_class = gt
+    class_loss = ce_class_loss(pred_class, gt_class)
+    class_loss = class_loss.mean()
+
+    return mask_loss + class_loss
 # Classifcation losses available: crossentropy
 
 # inputs: one hot repn of gt labels, prob of pred labels
 # gt_shape: (B, N), pred_shape: (B, N)
 # loss_shape: (B,)
-def class_loss(pred, gt):
+def ce_class_loss(pred, gt):
     _loss = nn.CrossEntropyLoss(reduce=False)
     labels = gt.nonzero()[:, 1]
     l = _loss(pred, labels)

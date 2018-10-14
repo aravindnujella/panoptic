@@ -119,6 +119,7 @@ class iResNet(nn.Module):
         return nn.Sequential(*layers)
 
     def forward(self, x):
+        outs = []
         x = self.conv1(x)
         x = self.bn1(x)
         x = self.relu(x)
@@ -126,11 +127,11 @@ class iResNet(nn.Module):
         x = self.maxpool(x)
 
         x = self.layer1(x)
-        x = self.layer2(x)
-        x = self.layer3(x)
-        x = self.layer4(x)
+        x = self.layer2(x); outs.append(x)
+        x = self.layer3(x); outs.append(x)
+        x = self.layer4(x); outs.append(x)
 
-        return x
+        return outs
 
 
 def init_conv(iconv, conv, d_in, d_out):

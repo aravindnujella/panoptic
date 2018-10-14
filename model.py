@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-
+import torch.nn.functional as F
 import iresnet
 import utils
 
@@ -49,26 +49,25 @@ class mask_branch(nn.Module):
         super(mask_branch, self).__init__()
 
         bc5, bc4, bc3 = block_counts
-        block = Bottleneck
         planes = 256
-        e = block.expansion
-        self.layer5 = self._make_layer(block, inplanes=2048 + 64, planes=planes // 1, bc=bc5)
-        self.layer4 = self._make_layer(block, inplanes=1024 + e * planes // 1, planes=planes // 2, bc=bc4)
-        self.layer3 = self._make_layer(block, inplanes=512 + e * planes // 2, planes=planes // 4, bc=bc3)
+        e = Bottleneck.expansion
+        self.layer4 = self._make_layer(Bottleneck, inplanes=2048 + 64, planes=planes // 1, bc=bc5)
+        self.layer3 = self._make_layer(Bottleneck, inplanes=1024 + 32 + e * planes // 1, planes=planes // 2, bc=bc4)
+        self.layer2 = self._make_layer(Bottleneck, inplanes=512 + 16 + e * planes // 2, planes=planes // 4, bc=bc3)
 
     def forward(self, x):
-        l3, l4, l5 = m
+        l2, l3, l4 = x
+        print(l2.shape, l3.shape, l4.shape)
         masks = []
 
-        # y = self.layer5(torch.cat([c, l5], 1))
-        y = l5
-        y = self.upsample(y)
-
-        y = self.layer4(torch.cat([y, l4], 1))
-        y = self.upsample(y)
+        y = self.layer4(l4)
+        y = F.interpolate(y,scale_factor=2)
 
         y = self.layer3(torch.cat([y, l3], 1))
-        y = self.upsample(y)
+        y = F.interpolate(y,scale_factor=2)
+
+        y = self.layer2(torch.cat([y, l2], 1))
+        y = F.interpolate(y,scale_factor=2)
 
         return y
 
@@ -80,7 +79,7 @@ class mask_branch(nn.Module):
         layers = []
         layers.append(block(inplanes, planes, downsample=downsample))
         for i in range(1, bc):
-            layers.append(block(block.expansion * planes, planes, downsample=downsample))
+            layers.append(block(block.expansion * planes, planes, downsample=None))
 
         return nn.Sequential(*layers)
 
@@ -117,21 +116,23 @@ class hgmodel(nn.Module):
         self.mb1 = mask_branch([3,3,3])
         self.cb = class_branch()
 
-    # TOTO: Copy from single-object-detection
     def forward(self, x):
         # print(x[0][0].shape, x[1][0].shape)
         # print(len(x[0]), len(x[1]))
         img, impulse = self.unpack_imgs(x)
         print(img.shape, impulse.shape)
         inp = torch.cat([img, impulse], 1)
-        class_feats, mask_feats = self.iresnet1(inp)
-        m0 = self.mb0(mask_feats)
+        resnet_feats = self.iresnet1(inp)
+        m0 = self.mb0(resnet_feats)
+
+        del(resnet_feats)
+        m0 = F.interpolate(m0, scale_factor=4)
 
         inp = torch.cat([img, m0], 1)
-        class_feats, mask_feats = self.iresnet2(inp)
-        m1 = self.mb1(mask_feats)
+        resnet_feats = self.iresnet2(inp)
+        m1 = self.mb1(resnet_feats)
 
-        c = self.cb(class_feats)
+        c = self.cb(resnet_feats[-1])
         return c, m1
 
 

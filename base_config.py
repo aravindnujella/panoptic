@@ -58,8 +58,8 @@ class Config():
     MIN_STUFF_AREA = 10 * 10
 
     def __init__(self):
-        self.WIDTH = 32 * 14
-        self.HEIGHT = 32 * 14
+        self.WIDTH = 32 * 7
+        self.HEIGHT = 32 * 7
         self.BATCH_SIZE = self.IMAGES_PER_GPU * self.GPU_COUNT
         self.IMAGE_SHAPE = (self.WIDTH, self.HEIGHT, 3)
         # 133 + 1 in panoptic

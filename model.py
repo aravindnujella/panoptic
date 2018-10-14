@@ -109,7 +109,7 @@ class class_branch(nn.Module):
 
     def forward(self, x):
         x = self.cl1(x)
-        x = self.pool(x)
+        # x = self.pool(x)
         x = self.cl2(x)
         x = self.avg(x)
         x = x.view(-1, 121)

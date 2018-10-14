@@ -39,7 +39,7 @@ class Checkpoint:
         self.running_loss += loss
         self.step += 1
 
-        if step % iters_per_epoch == 0:
+        if self.step % self.iters_per_epoch == 0:
             self.display_loss()
             torch.save(net.state_dict(), "%s%s_%d.pt" % (self.model_dir, self.model_name, self.step))
             self.running_loss = None

@@ -4,6 +4,7 @@ import torch.nn.functional as F
 import iresnet
 import utils
 
+
 class Bottleneck(nn.Module):
     expansion = 4
 
@@ -50,24 +51,36 @@ class mask_branch(nn.Module):
 
         bc5, bc4, bc3 = block_counts
         planes = 256
+        d = 4
         e = Bottleneck.expansion
-        self.layer4 = self._make_layer(Bottleneck, inplanes=2048 + 64, planes=planes // 1, bc=bc5)
-        self.layer3 = self._make_layer(Bottleneck, inplanes=1024 + 32 + e * planes // 1, planes=planes // 2, bc=bc4)
-        self.layer2 = self._make_layer(Bottleneck, inplanes=512 + 16 + e * planes // 2, planes=planes // 4, bc=bc3)
+        self.layer4 = self._make_layer(Bottleneck, inplanes=8 * 64 + (8 * d) // 2, planes=planes // 1, bc=bc5)
+        self.layer3 = self._make_layer(Bottleneck, inplanes=4 * 64 + (4 * d) // 2 + e * planes // 1, planes=planes // 2, bc=bc4)
+        self.layer2 = self._make_layer(Bottleneck, inplanes=2 * 64 + (2 * d) // 2 + e * planes // 2, planes=planes // 4, bc=bc3)
+        self.layer1 = self._make_layer(Bottleneck, inplanes=1 * 64 + (1 * d) // 2 + e * planes // 4, planes=planes // 8, bc=bc3)
+
+        self.mask_layer = nn.Sequential(
+            nn.Conv2d(planes//2, 1, kernel_size=(7, 7), bias=None, padding=(3,3)),
+        )
 
     def forward(self, x):
-        l2, l3, l4 = x
-        print(l2.shape, l3.shape, l4.shape)
+        l1, l2, l3, l4 = x
+        print(l1.shape, l2.shape, l3.shape, l4.shape)
         masks = []
 
         y = self.layer4(l4)
-        y = F.interpolate(y,scale_factor=2)
+        y = F.interpolate(y, scale_factor=2)
 
         y = self.layer3(torch.cat([y, l3], 1))
-        y = F.interpolate(y,scale_factor=2)
+        y = F.interpolate(y, scale_factor=2)
 
         y = self.layer2(torch.cat([y, l2], 1))
-        y = F.interpolate(y,scale_factor=2)
+        y = F.interpolate(y, scale_factor=2)
+
+        y = self.layer1(torch.cat([y, l1], 1))
+        y = F.interpolate(y, scale_factor=2)
+
+        y = F.interpolate(y, scale_factor=2)
+        y = self.mask_layer(y)
 
         return y
 
@@ -89,10 +102,10 @@ class class_branch(nn.Module):
     def __init__(self):
         super(class_branch, self).__init__()
         self.pool = nn.MaxPool2d(kernel_size=2, stride=2)
-        self.cl1 = self._make_layer()
-        self.cl2 = self._make_layer()
-        self.avg = nn.AvgPool2d(kernel_size=16,stride=1)
-        self.fc = nn.Linear(2048,121)
+        self.cl1 = self._make_layer(2048+64, 256)
+        self.cl2 = self._make_layer(256, 121)
+        self.avg = nn.AvgPool2d(kernel_size=7, stride=1)
+        self.fc = nn.Linear(121, 121)
 
     def forward(self, x):
         x = self.cl1(x)
@@ -103,8 +116,9 @@ class class_branch(nn.Module):
         x = self.fc(x)
         return x
 
-    def _make_layer(self):
-        return None
+    def _make_layer(self, inplanes, out_planes):
+        return nn.Conv2d(inplanes, out_planes, kernel_size=(1,1), padding=(0,0),bias=False)
+
 
 class hgmodel(nn.Module):
 
@@ -112,8 +126,8 @@ class hgmodel(nn.Module):
         super(hgmodel, self).__init__()
         self.iresnet1 = iresnet.iresnet101(pretrained=False)
         self.iresnet2 = iresnet.iresnet101(pretrained=False)
-        self.mb0 = mask_branch([3,3,3])
-        self.mb1 = mask_branch([3,3,3])
+        self.mb0 = mask_branch([3, 3, 3])
+        self.mb1 = mask_branch([3, 3, 3])
         self.cb = class_branch()
 
     def forward(self, x):
@@ -122,30 +136,28 @@ class hgmodel(nn.Module):
         img, impulse = self.unpack_imgs(x)
         print(img.shape, impulse.shape)
         inp = torch.cat([img, impulse], 1)
-        resnet_feats = self.iresnet1(inp)
-        m0 = self.mb0(resnet_feats)
+        cf, mf = self.iresnet1(inp)
+        m0 = self.mb0(mf)
 
-        del(resnet_feats)
-        m0 = F.interpolate(m0, scale_factor=4)
+        del(mf); del(cf)
 
         inp = torch.cat([img, m0], 1)
-        resnet_feats = self.iresnet2(inp)
-        m1 = self.mb1(resnet_feats)
+        cf, mf = self.iresnet2(inp)
+        m1 = self.mb1(mf)
 
-        c = self.cb(resnet_feats[-1])
+        c = self.cb(cf)
+
         return c, m1
-
 
     def unpack_imgs(self, x):
         imgs, impulses = x
         new_imgs = []
-        
-        for i,img in enumerate(imgs,0):
+
+        for i, img in enumerate(imgs, 0):
             rep = impulses[i].shape[0]
-            img = torch.cat([img.unsqueeze(0)]*rep, 0)
+            img = torch.cat([img.unsqueeze(0)] * rep, 0)
             new_imgs.append(img)
-        
+
         new_impulses = [it.unsqueeze(1) for it in impulses]
 
-        return torch.cat(new_imgs,0).float(), torch.cat(new_impulses,0).float()
-
+        return torch.cat(new_imgs, 0).float(), torch.cat(new_impulses, 0).float()

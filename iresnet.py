@@ -49,9 +49,9 @@ class iBottleneck(nn.Module):
         p, q, r, s = d
         self.conv1 = iconv(inplanes + p, planes, q, kernel_size=1, bias=False)
         self.bn1 = ibn(planes, q)
-        self.conv2 = iconv(planes + q, planes, r, kernel_size=3, stride=stride, padding=1,bias=False)
+        self.conv2 = iconv(planes + q, planes, r, kernel_size=3, stride=stride, padding=1, bias=False)
         self.bn2 = ibn(planes, r)
-        self.conv3 = iconv(planes + r, planes * self.expansion, s, kernel_size=1,bias=False)
+        self.conv3 = iconv(planes + r, planes * self.expansion, s, kernel_size=1, bias=False)
         self.bn3 = ibn(planes * self.expansion, s)
         self.relu = nn.ReLU(inplace=True)
         self.downsample = downsample
@@ -100,6 +100,11 @@ class iResNet(nn.Module):
         self.layer3 = self._make_layer(block, 4 * 64, 4 * d, block_counts[3], stride=2)
         self.layer4 = self._make_layer(block, 8 * 64, 8 * d, block_counts[4], stride=2)
 
+        self.wing4 = nn.Conv2d(4 * 8 * 64 + (8 * d) * 2, 8 * 64 + (8 * d) // 2, kernel_size=(1,1),bias=False)
+        self.wing3 = nn.Conv2d(4 * 4 * 64 + (4 * d) * 2, 4 * 64 + (4 * d) // 2, kernel_size=(1,1),bias=False)
+        self.wing2 = nn.Conv2d(4 * 2 * 64 + (2 * d) * 2, 2 * 64 + (2 * d) // 2, kernel_size=(1,1),bias=False)
+        self.wing1 = nn.Conv2d(4 * 1 * 64 + (1 * d) * 2, 1 * 64 + (1 * d) // 2, kernel_size=(1,1),bias=False)
+
     def _make_layer(self, block, planes, d, block_count, stride):
 
         ds = [d, d // 2, d // 2, 2 * d]
@@ -126,12 +131,12 @@ class iResNet(nn.Module):
 
         x = self.maxpool(x)
 
-        x = self.layer1(x)
-        x = self.layer2(x); outs.append(x)
-        x = self.layer3(x); outs.append(x)
-        x = self.layer4(x); outs.append(x)
+        x = self.layer1(x); outs.append(self.wing1(x))
+        x = self.layer2(x); outs.append(self.wing2(x))
+        x = self.layer3(x); outs.append(self.wing3(x))
+        x = self.layer4(x); outs.append(self.wing4(x))
 
-        return outs
+        return x, outs
 
 
 def init_conv(iconv, conv, d_in, d_out):
@@ -156,6 +161,7 @@ def init_conv(iconv, conv, d_in, d_out):
     iconv.copy_conv.weight = nn.Parameter(cp_filter_weight)
     iconv.ignore_conv.weight = nn.Parameter(ig_filter_weight)
 
+
 def init_bn(ibn, bn, d_in):
 
     old_in = bn.weight.shape[0]
@@ -177,7 +183,7 @@ def init_bottleneck(iblock, block, ds):
     inplanes = block.conv1.weight.shape[1]
     planes = block.conv1.weight.shape[0]
 
-    p,q,r,s = ds
+    p, q, r, s = ds
     if block.downsample != None:
         init_conv(iblock.downsample[0], block.downsample[0], p, s)
         init_bn(iblock.downsample[1], block.downsample[1], s)
@@ -266,7 +272,6 @@ if __name__ == '__main__':
     img = img.cuda()
     inp = inp.cuda()
 
-
     iresnet = iResNet(iBottleneck, [0, 3, 4, 23, 3], 4)
 
     resnet = models.resnet101(pretrained=True)
@@ -275,8 +280,8 @@ if __name__ == '__main__':
     iresnet = iresnet.cuda()
     resnet = resnet.cuda()
 
-    neq = (iresnet(inp)[:,:2048,:,:] != resnet_conv(resnet, img))
+    neq = (iresnet(inp)[:, :2048, :, :] != resnet_conv(resnet, img))
     print(torch.sum(neq))
     print(iresnet(inp).shape)
-    print(iresnet(inp)[0,0,:,:])
-    print(resnet_conv(resnet, img)[0,0,:,:])
+    print(iresnet(inp)[0, 0, :, :])
+    print(resnet_conv(resnet, img)[0, 0, :, :])

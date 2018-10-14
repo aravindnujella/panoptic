@@ -17,3 +17,11 @@ resize(image, segments)
 > current set of targets: 1) implement loss.py 2) implement train.py 3) verify model correctness in model.py
 
 
+
+[2018-10-14 10:05]
+memory required is too high. may be use wing conv? i.e, add a linear layer. 
+
+4*f -> f
+
+
+[2018-10-14 14:35]

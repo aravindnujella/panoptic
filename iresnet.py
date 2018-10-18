@@ -232,6 +232,15 @@ def iresnet101(pretrained=False):
         init_pretrained(iresnet, resnet)
     return iresnet
 
+
+def iresnet50(pretrained=False):
+    block_counts = [0, 3, 4, 6, 3]
+    iresnet = iResNet(iBottleneck, block_counts, 4)
+    resnet = models.resnet50(pretrained=True)
+    if pretrained:
+        init_pretrained(iresnet, resnet)
+    return iresnet
+
 if __name__ == '__main__':
 
     def resnet_conv(resnet, x):

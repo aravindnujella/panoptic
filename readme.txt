@@ -25,3 +25,9 @@ memory required is too high. may be use wing conv? i.e, add a linear layer.
 
 
 [2018-10-14 14:35]
+
+
+[2018-10-17 01:12]
+(2 iresnets with wings)
+can train 12 instances @ 224*224 resolution
+unable to train even 1 instance @ 448*448 resolution

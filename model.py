@@ -64,6 +64,7 @@ class mask_branch(nn.Module):
 
     def forward(self, x):
         l1, l2, l3, l4 = x
+        del(x)
         print(l1.shape, l2.shape, l3.shape, l4.shape)
         masks = []
 
@@ -80,7 +81,7 @@ class mask_branch(nn.Module):
         y = F.interpolate(y, scale_factor=2)
 
         y = F.interpolate(y, scale_factor=2)
-        y = self.mask_layer(y)
+        y = torch.sum(y,1).unsqueeze(1)
 
         return y
 
@@ -109,7 +110,7 @@ class class_branch(nn.Module):
 
     def forward(self, x):
         x = self.cl1(x)
-        # x = self.pool(x)
+        x = self.pool(x)
         x = self.cl2(x)
         x = self.avg(x)
         x = x.view(-1, 121)
@@ -124,8 +125,8 @@ class hgmodel(nn.Module):
 
     def __init__(self):
         super(hgmodel, self).__init__()
-        self.iresnet1 = iresnet.iresnet101(pretrained=False)
-        self.iresnet2 = iresnet.iresnet101(pretrained=False)
+        self.iresnet0 = iresnet.iresnet50(pretrained=False)
+        self.iresnet1 = iresnet.iresnet50(pretrained=False)
         self.mb0 = mask_branch([3, 3, 3])
         self.mb1 = mask_branch([3, 3, 3])
         self.cb = class_branch()
@@ -136,13 +137,13 @@ class hgmodel(nn.Module):
         img, impulse = self.unpack_imgs(x)
         print(img.shape, impulse.shape)
         inp = torch.cat([img, impulse], 1)
-        cf, mf = self.iresnet1(inp)
+        cf, mf = self.iresnet0(inp)
         m0 = self.mb0(mf)
 
         del(mf); del(cf)
 
         inp = torch.cat([img, m0], 1)
-        cf, mf = self.iresnet2(inp)
+        cf, mf = self.iresnet1(inp)
         m1 = self.mb1(mf)
 
         c = self.cb(cf)

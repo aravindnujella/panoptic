@@ -59,7 +59,7 @@ class mask_branch(nn.Module):
         self.layer1 = self._make_layer(Bottleneck, inplanes=1 * 64 + (1 * d) // 2 + e * planes // 4, planes=planes // 8, bc=bc3)
 
         self.mask_layer = nn.Sequential(
-            nn.Conv2d(planes//2, 1, kernel_size=(7, 7), bias=None, padding=(3,3)),
+            nn.Conv2d(planes//2, 1, kernel_size=(1, 1), bias=None, padding=(0,0)),
         )
 
     def forward(self, x):
@@ -81,8 +81,8 @@ class mask_branch(nn.Module):
         y = F.interpolate(y, scale_factor=2)
 
         y = F.interpolate(y, scale_factor=2)
-        y = torch.sum(y,1).unsqueeze(1)
-
+        # y = torch.sum(y,1).unsqueeze(1)
+        y = self.mask_layer(y)
         return y
 
     def _make_layer(self, block, inplanes, planes, bc):

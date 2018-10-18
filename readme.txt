@@ -31,3 +31,10 @@ memory required is too high. may be use wing conv? i.e, add a linear layer.
 (2 iresnets with wings)
 can train 12 instances @ 224*224 resolution
 unable to train even 1 instance @ 448*448 resolution
+
+
+[2018-10-18 23:38]
+turns out there was issue with del(outs) in train loop. placing a delete to clear memory makes it possible to ...
+
+[2018-10-18 23:43]
+with clever deletes, i was able to run upto batch size of 4 on 448*448 resolution on 2 * resnet50 with full params. could clever freeing up of data save me?

@@ -4,10 +4,16 @@ import torch.nn as nn
 # 
 def loss_criterion1(pred, gt):
     pred_masks, pred_class = pred
+    
+    gt_masks, gt_class = gt
+    # gt_masks = [g.unsqueeze(1) for g in gt_masks]
+    gt_masks = torch.stack(gt_masks, 1).float()
+    gt_class = torch.stack(gt_class).float()
+    print(gt_masks.shape, pred_masks.shape, gt_class.shape, pred_class.shape)
+
     mask_loss = soft_iou(pred_masks, gt_masks)
     mask_loss = mask_loss.mean()
 
-    gt_masks, gt_class = gt
     class_loss = ce_class_loss(pred_class, gt_class)
     class_loss = class_loss.mean()
 
@@ -20,7 +26,7 @@ def loss_criterion1(pred, gt):
 # loss_shape: (B,)
 
 def ce_class_loss(pred, gt):
-    _loss = nn.CrossEntropyLoss(reduce=False)
+    _loss = nn.CrossEntropyLoss(reduction='none')
     labels = gt.nonzero()[:, 1]
     l = _loss(pred, labels)
     return l

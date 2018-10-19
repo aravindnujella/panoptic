@@ -137,18 +137,21 @@ class hgmodel(nn.Module):
         img, impulse = self.unpack_imgs(x)
         print(img.shape, impulse.shape)
         inp = torch.cat([img, impulse], 1)
-        cf, mf = self.iresnet0(inp)
+        del(impulse)
+        with torch.no_grad():        
+            cf, mf = self.iresnet0(inp)
         m0 = self.mb0(mf)
 
         del(mf); del(cf)
 
         inp = torch.cat([img, m0], 1)
-        cf, mf = self.iresnet1(inp)
+        with torch.no_grad():
+            cf, mf = self.iresnet1(inp)
         m1 = self.mb1(mf)
 
         c = self.cb(cf)
 
-        return c, m1
+        return m1, c
 
     def unpack_imgs(self, x):
         imgs, impulses = x

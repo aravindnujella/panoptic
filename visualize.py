@@ -1,3 +1,6 @@
+# TODO: Clean up
+# 
+
 import numpy as np
 import random
 from PIL import Image
@@ -90,3 +93,33 @@ def visualize_coco_data(img, masks, cat_ids, config):
         masked_img = apply_mask(masked_img, base_impulse[i], impulse_colors[i])
         masked_img = create_labelled_image(masked_img, masks[i], config.CAT_NAMES[class_ids[i]])
         masked_img.save("./results/" + str(i) + ".png", "PNG")
+
+
+
+# Master function
+# img = image as returned by the __getitem__ in cwh format
+# masks = list of masks returned by __getitem__ in cwh format;
+# (in [0,1] continous interval) 
+# cat_ids = cat_ids, cat_ids.shape[0] == len(masks)
+# impulses of same shape as masks
+# config with which the __getitem__ is used
+# name = name you want to give
+# images saved will be 0_$name, 1_$name etc 
+
+def visualize_data(img, impulses, masks, cat_ids, config, name):
+    img = np.moveaxis(img, 0, 2)
+    img *= config.STD_PIXEL
+    img += config.MEAN_PIXEL
+    img *= 255
+
+    print(cat_ids)
+    N = cat_ids.shape[0]
+    response_colors = random_colors(N)
+    impulse_colors = random_colors(N)
+    for i in range(N):
+        masked_img = img.copy()
+        masked_img = apply_mask(masked_img, masks[i], response_colors[i])
+        masked_img = apply_mask(masked_img, impulses[i], impulse_colors[i])
+        masked_img = create_labelled_image(masked_img, masks[i], config.CAT_NAMES[int(cat_ids[i])])
+        masked_img.save(("./results/%d_%s" ".png")%(i,name), "PNG")
+

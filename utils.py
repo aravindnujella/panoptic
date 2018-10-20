@@ -41,14 +41,15 @@ class Checkpoint:
 
         if self.step % self.iters_per_epoch == 0:
             self.display_loss()
-            torch.save(net.state_dict(), "%s%s_%d.pt" % (self.model_dir, self.model_name, self.step))
+            torch.save(net.state_dict(), "%s%s_%d.pt" % (self.model_dir, self.model_name, self.step-self.step))
             self.running_loss = None
 
     def display_loss(self):
-        l = self.running_loss.shape[0]
-        out = ""
-        for i in range(l):
-            out += "Loss%d\t%0.5f" % (i, self.running_loss / self.step)
-        print(out)
+        print(self.running_loss.data/self.step)
+        # l = self.running_loss.shape[0]
+        # out = ""
+        # for i in range(l):
+        #     out += "Loss%d\t%0.5f" % (i, self.running_loss / self.step)
+        # print(out)
 
 

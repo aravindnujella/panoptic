@@ -65,7 +65,7 @@ class mask_branch(nn.Module):
     def forward(self, x):
         l1, l2, l3, l4 = x
         del(x)
-        print(l1.shape, l2.shape, l3.shape, l4.shape)
+        # print(l1.shape, l2.shape, l3.shape, l4.shape)
         masks = []
 
         y = self.layer4(l4)
@@ -104,16 +104,16 @@ class class_branch(nn.Module):
         super(class_branch, self).__init__()
         self.pool = nn.MaxPool2d(kernel_size=2, stride=2)
         self.cl1 = self._make_layer(2048+64, 256)
-        self.cl2 = self._make_layer(256, 121)
+        self.cl2 = self._make_layer(256, 134)
         self.avg = nn.AvgPool2d(kernel_size=7, stride=1)
-        self.fc = nn.Linear(121, 121)
+        self.fc = nn.Linear(134, 134)
 
     def forward(self, x):
         x = self.cl1(x)
         x = self.pool(x)
         x = self.cl2(x)
         x = self.avg(x)
-        x = x.view(-1, 121)
+        x = x.view(-1, 134)
         x = self.fc(x)
         return x
 
@@ -135,7 +135,7 @@ class hgmodel(nn.Module):
         # print(x[0][0].shape, x[1][0].shape)
         # print(len(x[0]), len(x[1]))
         img, impulse = self.unpack_imgs(x)
-        print(img.shape, impulse.shape)
+        # print(img.shape, impulse.shape)
         inp = torch.cat([img, impulse], 1)
         del(impulse)
         with torch.no_grad():        

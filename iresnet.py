@@ -150,9 +150,9 @@ def init_conv(iconv, conv, d_in, d_out):
 
     fan_in = kernel_size[0] * kernel_size[1]
     a = torch.zeros((d_out, old_in,) + kernel_size)
-    b = torch.zeros((d_out, d_in,) + kernel_size)
-#     b = torch.eye(d_out, d_in).unsqueeze(-1).unsqueeze(-1)
-#     b = b.repeat([1, 1, kernel_size[0], kernel_size[1]]) / fan_in
+    # b = torch.zeros((d_out, d_in,) + kernel_size)
+    b = torch.eye(d_out, d_in).unsqueeze(-1).unsqueeze(-1)
+    b = b.repeat([1, 1, kernel_size[0], kernel_size[1]]) / fan_in
     cp_filter_weight = torch.cat([a, b], 1)
 
     assert(iconv.copy_conv.weight.shape == cp_filter_weight.shape)

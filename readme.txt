@@ -38,3 +38,8 @@ turns out there was issue with del(outs) in train loop. placing a delete to clea
 
 [2018-10-18 23:43]
 with clever deletes, i was able to run upto batch size of 4 on 448*448 resolution on 2 * resnet50 with full params. could clever freeing up of data save me?
+
+
+
+[2018-10-21 22:47]
+TODO: implement dataparallel :)

@@ -97,10 +97,10 @@ def visualize_coco_data(img, masks, cat_ids, config):
 
 
 # Master function
-# img = image as returned by the __getitem__ in cwh format
-# masks = list of masks returned by __getitem__ in cwh format;
+# img = image as returned by the __getitem__ in [cwh] format
+# masks = list of masks returned by __getitem__ in [wh] format;
 # (in [0,1] continous interval) 
-# cat_ids = cat_ids, cat_ids.shape[0] == len(masks)
+# cat_ids = cat_ids, len(cat_ids) == len(masks)
 # impulses of same shape as masks
 # config with which the __getitem__ is used
 # name = name you want to give
@@ -112,7 +112,6 @@ def visualize_data(img, impulses, masks, cat_ids, config, name):
     img += config.MEAN_PIXEL
     img *= 255
 
-    print(cat_ids)
     N = cat_ids.shape[0]
     response_colors = random_colors(N)
     impulse_colors = random_colors(N)

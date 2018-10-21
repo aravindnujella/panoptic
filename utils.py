@@ -45,11 +45,11 @@ class Checkpoint:
             self.running_loss = None
 
     def display_loss(self):
-        print(self.running_loss.data/self.step)
+        print(self.running_loss.data/self.iters_per_epoch)
         # l = self.running_loss.shape[0]
         # out = ""
         # for i in range(l):
-        #     out += "Loss%d\t%0.5f" % (i, self.running_loss / self.step)
+        #     out += "Loss%d\t%0.5f" % (i, self.running_loss / self.iters_per_epoch)
         # print(out)
 
 

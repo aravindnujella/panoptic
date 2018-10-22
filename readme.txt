@@ -49,4 +49,14 @@ TODO: implement dataparallel :)
 
 
 [2018-10-22 00:53]
-iresnet working fine 
+iresnet working fine
+
+
+[2018-10-22 14:26]
+some problem with mask branch. 
+> is it using too much memory?
+> mask_layer seems to have some issue with memory
+
+[2018-10-22 14:28]
+> problem is with mask layer
+

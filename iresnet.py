@@ -37,7 +37,7 @@ class ibn(nn.Module):
 
     def forward(self, x):
         ig, cp = x[:, :self.old_in, :, :], x[:, self.old_in:, :, :]
-        ig, cp = self.ignore_bn(ig), self.copy_bn(cp)
+        ig, cp = self.ignore_bn(ig), cp
         return torch.cat([ig, cp], 1)
 
 
@@ -100,10 +100,10 @@ class iResNet(nn.Module):
         self.layer3 = self._make_layer(block, 4 * 64, 4 * d, block_counts[3], stride=2)
         self.layer4 = self._make_layer(block, 8 * 64, 8 * d, block_counts[4], stride=2)
 
-        self.wing4 = nn.Conv2d(4 * 8 * 64 + (8 * d) * 2, 8 * 64 + (8 * d) // 2, kernel_size=(1,1),bias=False)
-        self.wing3 = nn.Conv2d(4 * 4 * 64 + (4 * d) * 2, 4 * 64 + (4 * d) // 2, kernel_size=(1,1),bias=False)
-        self.wing2 = nn.Conv2d(4 * 2 * 64 + (2 * d) * 2, 2 * 64 + (2 * d) // 2, kernel_size=(1,1),bias=False)
-        self.wing1 = nn.Conv2d(4 * 1 * 64 + (1 * d) * 2, 1 * 64 + (1 * d) // 2, kernel_size=(1,1),bias=False)
+        # self.wing4 = nn.Conv2d(4 * 8 * 64 + (8 * d) * 2, 8 * 64 + (8 * d) // 2, kernel_size=(1,1),bias=False)
+        # self.wing3 = nn.Conv2d(4 * 4 * 64 + (4 * d) * 2, 4 * 64 + (4 * d) // 2, kernel_size=(1,1),bias=False)
+        # self.wing2 = nn.Conv2d(4 * 2 * 64 + (2 * d) * 2, 2 * 64 + (2 * d) // 2, kernel_size=(1,1),bias=False)
+        # self.wing1 = nn.Conv2d(4 * 1 * 64 + (1 * d) * 2, 1 * 64 + (1 * d) // 2, kernel_size=(1,1),bias=False)
 
     def _make_layer(self, block, planes, d, block_count, stride):
 
@@ -131,15 +131,15 @@ class iResNet(nn.Module):
 
         x = self.maxpool(x)
 
-        x = self.layer1(x); outs.append(self.wing1(x))
-        x = self.layer2(x); outs.append(self.wing2(x))
-        x = self.layer3(x); outs.append(self.wing3(x))
-        x = self.layer4(x); outs.append(self.wing4(x))
+        x = self.layer1(x); outs.append(x)
+        x = self.layer2(x); outs.append(x)
+        x = self.layer3(x); outs.append(x)
+        x = self.layer4(x); outs.append(x)
 
         return x, outs
 
 
-def init_conv(iconv, conv, d_in, d_out):
+def init_conv(iconv, conv, d_in, d_out, val=0):
     weight = conv.weight
     old_out = weight.shape[0]
     old_in = weight.shape[1]
@@ -150,9 +150,21 @@ def init_conv(iconv, conv, d_in, d_out):
 
     fan_in = kernel_size[0] * kernel_size[1]
     a = torch.zeros((d_out, old_in,) + kernel_size)
-    # b = torch.zeros((d_out, d_in,) + kernel_size)
-    b = torch.eye(d_out, d_in).unsqueeze(-1).unsqueeze(-1)
-    b = b.repeat([1, 1, kernel_size[0], kernel_size[1]]) / fan_in
+
+    b = np.zeros((d_out, d_in,))
+    if val == 0:    
+        b = np.zeros((d_out, d_in,))
+    else:
+        b = np.eye(d_out,d_in)
+        if d_out>d_in:
+            idx = np.array([i % d_in for i in range(d_out)])
+            b[range(d_out), idx] = 1
+        else:
+            b = np.eye(d_out,d_in)
+
+    b = torch.from_numpy(b).unsqueeze(-1).unsqueeze(-1).float()
+    b = b.repeat([1, 1, kernel_size[0], kernel_size[1]])/fan_in
+
     cp_filter_weight = torch.cat([a, b], 1)
 
     assert(iconv.copy_conv.weight.shape == cp_filter_weight.shape)
@@ -185,7 +197,7 @@ def init_bottleneck(iblock, block, ds):
 
     p, q, r, s = ds
     if block.downsample != None:
-        init_conv(iblock.downsample[0], block.downsample[0], p, s)
+        init_conv(iblock.downsample[0], block.downsample[0], p, s, val=1)
         init_bn(iblock.downsample[1], block.downsample[1], s)
     else:
         assert(p == s)
@@ -215,7 +227,7 @@ def init_pretrained(iresnet, resnet):
     block_counts = iresnet.block_counts
     ichannels = iresnet.ichannels
 
-    init_conv(iresnet.conv1, resnet.conv1, ichannels, d)
+    init_conv(iresnet.conv1, resnet.conv1, ichannels, d, val=1)
     init_bn(iresnet.bn1, resnet.bn1, d)
 
     init_layer(iresnet.layer1, resnet.layer1, block_counts[1], 1 * d)
@@ -245,6 +257,12 @@ if __name__ == '__main__':
 
     import os
     import time
+    import torch
+    import torchvision.models as models
+
+    import numpy as np
+    torch.set_printoptions(threshold=float('nan'))
+    
     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
     os.environ["CUDA_VISIBLE_DEVICES"] = "1"
     def resnet_conv(resnet, x):
@@ -296,6 +314,6 @@ if __name__ == '__main__':
     neq = (iresnet(inp)[0][:, :2048, :, :] != resnet_conv(resnet, img))
     print(torch.sum(neq))
     print(iresnet(inp)[0].shape)
-    print(iresnet(inp)[0][0, 0, :, :])
-    print(resnet_conv(resnet, img)[0, 0, :, :])
-    # print(iresnet(inp)[0][0, 2048:, :, :])
+    print(iresnet(inp)[0][0, 2047, :, :])
+    print(resnet_conv(resnet, img)[0, 2047, :, :])
+    print(iresnet(inp)[0][0, 2048:, :, :])

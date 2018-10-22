@@ -53,14 +53,13 @@ class mask_branch(nn.Module):
         planes = 256
         d = 4
         e = Bottleneck.expansion
-        self.layer4 = self._make_layer(Bottleneck, inplanes=8 * 64 + (8 * d) // 2, planes=planes // 1, bc=bc5)
-        self.layer3 = self._make_layer(Bottleneck, inplanes=4 * 64 + (4 * d) // 2 + e * planes // 1, planes=planes // 2, bc=bc4)
-        self.layer2 = self._make_layer(Bottleneck, inplanes=2 * 64 + (2 * d) // 2 + e * planes // 2, planes=planes // 4, bc=bc3)
-        self.layer1 = self._make_layer(Bottleneck, inplanes=1 * 64 + (1 * d) // 2 + e * planes // 4, planes=planes // 8, bc=bc3)
+        self.layer4 = self._make_layer(Bottleneck, inplanes=4 * (8 * 64 + (8 * d) // 2), planes=planes // 1, bc=bc5)
+        self.layer3 = self._make_layer(Bottleneck, inplanes=4 * (4 * 64 + (4 * d) // 2) + e * planes // 1, planes=planes // 2, bc=bc4)
+        self.layer2 = self._make_layer(Bottleneck, inplanes=4 * (2 * 64 + (2 * d) // 2) + e * planes // 2, planes=planes // 4, bc=bc3)
+        self.layer1 = self._make_layer(Bottleneck, inplanes=4 * (1 * 64 + (1 * d) // 2) + e * planes // 4, planes=planes // 8, bc=bc3)
 
         self.mask_layer = nn.Sequential(
-            nn.Conv2d(planes//2, 1, kernel_size=(7, 7), bias=False, padding=(3,3)),
-            nn.ReLU(),
+            nn.Conv2d(planes//2, 1, kernel_size=(3, 3), bias=False, padding=(1,1)),
         )
 
         for m in self.modules():
@@ -90,8 +89,8 @@ class mask_branch(nn.Module):
         y = F.interpolate(y, scale_factor=2)
 
         y = F.interpolate(y, scale_factor=2)
-        y = torch.sum(y,1).unsqueeze(1)
-        # y = self.mask_layer(y)
+        # y = torch.sum(y,1).unsqueeze(1)
+        y = self.mask_layer(y)
         return y
 
     def _make_layer(self, block, inplanes, planes, bc):
@@ -149,8 +148,8 @@ class hgmodel(nn.Module):
         super(hgmodel, self).__init__()
         self.iresnet0 = iresnet.iresnet50(pretrained=True)
         self.iresnet1 = iresnet.iresnet50(pretrained=True)
-        self.mb0 = mask_branch([3, 3, 3])
-        self.mb1 = mask_branch([3, 3, 3])
+        self.mb0 = mask_branch([1, 1, 1])
+        self.mb1 = mask_branch([1, 1, 1])
         self.cb = class_branch()
 
     def forward(self, x):

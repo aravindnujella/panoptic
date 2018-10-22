@@ -1,15 +1,14 @@
 import torch
 import torch.nn as nn
 
-# 
+
 def loss_criterion1(pred, gt):
     pred_masks, pred_scores = pred
     
     gt_masks, gt_labels = gt
-    # gt_masks = [g.unsqueeze(1) for g in gt_masks]
     gt_masks = torch.stack(gt_masks, 1).float()
     gt_labels = torch.cat(gt_labels, 0).long()
-    print(gt_masks.shape, pred_masks.shape, gt_labels.shape, pred_scores.shape)
+    # print(gt_masks.shape, pred_masks.shape, gt_labels.shape, pred_scores.shape)
 
     mask_loss = soft_iou(pred_masks, gt_masks)
     mask_loss = mask_loss.mean()
@@ -17,7 +16,7 @@ def loss_criterion1(pred, gt):
     class_loss = ce_class_loss(pred_scores, gt_labels)
     class_loss = class_loss.mean()
     print(mask_loss, class_loss)
-    return mask_loss + class_loss
+    return mask_loss
 
 # Classifcation losses available: crossentropy
 
@@ -35,13 +34,13 @@ def ce_class_loss(pred_scores, gt_labels):
 # pred_masks are point wise probabilities .i.e,
 # after sigmoid application
 # both must be of same shape: (B, C, w, h)
-# output loss shape: same as input shape
+# output loss shape: (B,)
 
 def soft_iou(pred_masks, gt_masks):
     pred_masks = pred_masks.sigmoid()
     i = (pred_masks * gt_masks).sum(-1).sum(-1)
     u = (pred_masks + gt_masks - pred_masks * gt_masks).sum(-1).sum(-1)
-    l = 1 - i / u
+    l = 1 - i/u
     return l
 
 

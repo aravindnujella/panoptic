@@ -58,5 +58,5 @@ some problem with mask branch.
 > mask_layer seems to have some issue with memory
 
 [2018-10-22 14:28]
-> problem is with mask layer
+> problem is with mask layer using bias=None instead of bias=False
 

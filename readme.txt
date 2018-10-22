@@ -60,3 +60,12 @@ some problem with mask branch.
 [2018-10-22 14:28]
 > problem is with mask layer using bias=None instead of bias=False
 
+
+[2018-10-23 00:17]
+TODO:
+> move unpack images from model.py. it is not the memory usage bottleneck
+> change collate_fn in pan_loader.py to do it the pytorch way. this opens up possibility of multi gpu
+> change the cudify_list etc.
+> the model is still not learning anything.
+
+

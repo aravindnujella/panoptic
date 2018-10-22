@@ -54,7 +54,7 @@ class Config():
     STD_PIXEL = np.array(
         [0.229, 0.224, 0.225], dtype=np.float32).reshape(1, 1, -1)
 
-    IMPULSE_SIZE = (9, 9)
+    IMPULSE_SIZE = (32, 32)
     MIN_STUFF_AREA = 10 * 10
 
     def __init__(self):

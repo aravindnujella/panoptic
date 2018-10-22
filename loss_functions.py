@@ -4,7 +4,7 @@ import torch.nn as nn
 
 def loss_criterion1(pred, gt):
     pred_masks, pred_scores = pred
-    
+
     gt_masks, gt_labels = gt
     gt_masks = torch.stack(gt_masks, 1).float()
     gt_labels = torch.cat(gt_labels, 0).long()
@@ -16,13 +16,14 @@ def loss_criterion1(pred, gt):
     class_loss = ce_class_loss(pred_scores, gt_labels)
     class_loss = class_loss.mean()
     print(mask_loss, class_loss)
-    return mask_loss
+    return mask_loss + class_loss
 
 # Classifcation losses available: crossentropy
 
 # inputs: one hot repn of gt labels, prob of pred labels
 # gt_shape: (B), pred_shape: (B, N)
 # loss_shape: (B,)
+
 
 def ce_class_loss(pred_scores, gt_labels):
     _loss = nn.CrossEntropyLoss(reduction='none')
@@ -36,11 +37,12 @@ def ce_class_loss(pred_scores, gt_labels):
 # both must be of same shape: (B, C, w, h)
 # output loss shape: (B,)
 
+
 def soft_iou(pred_masks, gt_masks):
     pred_masks = pred_masks.sigmoid()
     i = (pred_masks * gt_masks).sum(-1).sum(-1)
     u = (pred_masks + gt_masks - pred_masks * gt_masks).sum(-1).sum(-1)
-    l = 1 - i/u
+    l = 1 - i / u
     return l
 
 

@@ -111,10 +111,10 @@ class class_branch(nn.Module):
     def __init__(self):
         super(class_branch, self).__init__()
         self.pool = nn.MaxPool2d(kernel_size=2, stride=2)
-        self.cl1 = self._make_layer(2048+64, 256)
-        self.cl2 = self._make_layer(256, 134)
+        self.cl1 = self._make_layer(2048+64, 512)
+        self.cl2 = self._make_layer(512, 512)
         self.avg = nn.AvgPool2d(kernel_size=7, stride=1)
-        self.fc = nn.Linear(134, 134)
+        self.fc = nn.Linear(512, 134)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -129,16 +129,17 @@ class class_branch(nn.Module):
         x = self.pool(x)
         x = self.cl2(x)
         x = self.avg(x)
-        x = x.view(-1, 134)
+        x = F.relu(x)
+        x = x.view(x.shape[0], -1)
         x = self.fc(x)
         return x
 
     def _make_layer(self, inplanes, out_planes):
          return nn.Sequential(
-            nn.Conv2d(inplanes, out_planes, kernel_size=(3,3), padding=(1,1),bias=False),
+            nn.Conv2d(inplanes, out_planes, kernel_size=(1,1), padding=(0,0),bias=False),
             nn.ReLU(),
-            # nn.Conv2d(inplanes, out_planes, kernel_size=(3,3), padding=(1,1),bias=False),
-            # nn.ReLU(),
+            nn.Conv2d(out_planes, out_planes, kernel_size=(3,3), padding=(1,1),bias=False),
+            nn.ReLU(),
             )            
 
 
@@ -148,8 +149,8 @@ class hgmodel(nn.Module):
         super(hgmodel, self).__init__()
         self.iresnet0 = iresnet.iresnet50(pretrained=True)
         self.iresnet1 = iresnet.iresnet50(pretrained=True)
-        self.mb0 = mask_branch([1, 1, 1])
-        self.mb1 = mask_branch([1, 1, 1])
+        self.mb0 = mask_branch([3, 3, 3])
+        self.mb1 = mask_branch([3, 3, 3])
         self.cb = class_branch()
 
     def forward(self, x):

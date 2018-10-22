@@ -296,8 +296,12 @@ if __name__ == '__main__':
 
     img = torch.Tensor(img)
 
-    impulse = torch.ones(img.shape[-2:]).unsqueeze(0).unsqueeze(0)
+    impulse = torch.zeros(img.shape[-2:])
+    w, h = img.shape[-2:]
+    impulse[w//2-32:w//2+32, h//2-32:h//2+32] = 1
+    Image.fromarray((impulse.numpy()*255).astype(np.uint8),"L").show()
 
+    impulse.unsqueeze_(0).unsqueeze_(0)
     inp = torch.cat([img, impulse], 1)
 
     img = img.cuda()

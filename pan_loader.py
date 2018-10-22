@@ -53,22 +53,22 @@ class CocoDataset(data.Dataset):
 
     def __getitem__(self, index):
 
-        try:
-            # 0. read coco data as is; if no instances of required criteria then
-            # return None and filter in collate
-            data = self.load_data(index)
+        # try:
+        # 0. read coco data as is; if no instances of required criteria then
+        # return None and filter in collate
+        data = self.load_data(index)
 
-            # 1. remove unwanted data
-            # 2. fixed resolution.
-            # 3. Data Augmentation: skipped for now
-            data = self.standardize_data(*data)
+        # 1. remove unwanted data
+        # 2. fixed resolution.
+        # 3. Data Augmentation: skipped for now
+        data = self.standardize_data(*data)
 
-            # 4. Target generation:
-            return self.generate_targets(*data)
+        # 4. Target generation:
+        return self.generate_targets(*data)
 
-        except:
-            print("problem loading image index: %d" % index)
-            return None
+        # except:
+        #     print("problem loading image index: %d" % index)
+        #     return None
 
     def load_data(self, index):
         coco_data = self.coco_data
@@ -143,8 +143,12 @@ class CocoDataset(data.Dataset):
         img = np.moveaxis(img, 2, 0)
 
         # select 4 instances to train randomly
-        idx = np.random.randint(low=0,high=impulses.shape[0], size=(8,))
-        # idx = np.arange(len(cat_ids))
+        mask_sizes = np.array([np.sum(g) for g in instance_masks])
+        high = min(impulses.shape[0], 1)
+        # idx = np.random.randint(low=0,high=impulses.shape[0], size=(8,))
+        idx = mask_sizes.argsort()[-high:][::-1]
+        print(idx)
+        print(cat_ids,cat_ids[idx])
         return img, impulses[idx], instance_masks[idx], cat_ids[idx]
 
     def rgb2id(self, color):

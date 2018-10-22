@@ -43,3 +43,10 @@ with clever deletes, i was able to run upto batch size of 4 on 448*448 resolutio
 
 [2018-10-21 22:47]
 TODO: implement dataparallel :)
+
+[2018-10-22 00:47]
+"network not learning anything; possible bug locns: iresnet, mb, cb, lossfn, not letting copy_filters train, many inputs from same image,;"
+
+
+[2018-10-22 00:53]
+iresnet working fine 

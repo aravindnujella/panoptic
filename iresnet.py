@@ -243,6 +243,10 @@ def iresnet50(pretrained=False):
 
 if __name__ == '__main__':
 
+    import os
+    import time
+    os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+    os.environ["CUDA_VISIBLE_DEVICES"] = "1"
     def resnet_conv(resnet, x):
         x = resnet.conv1(x)
         x = resnet.bn1(x)
@@ -274,7 +278,7 @@ if __name__ == '__main__':
 
     img = torch.Tensor(img)
 
-    impulse = torch.zeros(img.shape[-2:]).unsqueeze(0).unsqueeze(0)
+    impulse = torch.ones(img.shape[-2:]).unsqueeze(0).unsqueeze(0)
 
     inp = torch.cat([img, impulse], 1)
 
@@ -289,8 +293,9 @@ if __name__ == '__main__':
     iresnet = iresnet.cuda()
     resnet = resnet.cuda()
 
-    neq = (iresnet(inp)[:, :2048, :, :] != resnet_conv(resnet, img))
+    neq = (iresnet(inp)[0][:, :2048, :, :] != resnet_conv(resnet, img))
     print(torch.sum(neq))
-    print(iresnet(inp).shape)
-    print(iresnet(inp)[0, 0, :, :])
+    print(iresnet(inp)[0].shape)
+    print(iresnet(inp)[0][0, 0, :, :])
     print(resnet_conv(resnet, img)[0, 0, :, :])
+    # print(iresnet(inp)[0][0, 2048:, :, :])

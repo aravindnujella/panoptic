@@ -8,8 +8,8 @@ def loss_criterion1(pred, gt):
     gt_masks, gt_labels = gt
     # gt_masks = [g.unsqueeze(1) for g in gt_masks]
     gt_masks = torch.stack(gt_masks, 1).float()
-    gt_labels = torch.stack(gt_labels).long().squeeze()
-    # print(gt_masks.shape, pred_masks.shape, gt_labels.shape, pred_scores.shape)
+    gt_labels = torch.cat(gt_labels, 0).long()
+    print(gt_masks.shape, pred_masks.shape, gt_labels.shape, pred_scores.shape)
 
     mask_loss = soft_iou(pred_masks, gt_masks)
     mask_loss = mask_loss.mean()

@@ -159,8 +159,7 @@ class hgmodel(nn.Module):
         # print(img.shape, impulse.shape)
         inp = torch.cat([img, impulse], 1)
         del(impulse)
-        with torch.no_grad():        
-            cf, mf = self.iresnet0(inp)
+        cf, mf = self.iresnet0(inp)
         m0 = self.mb0(mf)
 
         # del(mf); del(cf)

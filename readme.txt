@@ -69,3 +69,12 @@ TODO:
 > the model is still not learning anything.
 
 
+
+[2018-10-23 16:04]
+> seems like issue is isufficient number of parameters?
+> it could also be that im training on big instances which are easy for trivial soln.
+  (just predict everything as +ve)
+
+
+[2018-10-23 16:08]
+> yup. degenerate network

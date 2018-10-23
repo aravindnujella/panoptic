@@ -247,7 +247,7 @@ def iresnet101(pretrained=False):
 
 def iresnet50(pretrained=False):
     block_counts = [0, 3, 4, 6, 3]
-    iresnet = iResNet(iBottleneck, block_counts, 4)
+    iresnet = iResNet(iBottleneck, block_counts, 8)
     resnet = models.resnet50(pretrained=True)
     if pretrained:
         init_pretrained(iresnet, resnet)
@@ -307,10 +307,10 @@ if __name__ == '__main__':
     img = img.cuda()
     inp = inp.cuda()
 
-    iresnet = iResNet(iBottleneck, [0, 3, 4, 23, 3], 4)
+    iresnet = iresnet50(pretrained=True)
 
-    resnet = models.resnet101(pretrained=True)
-    init_pretrained(iresnet, resnet)
+    resnet = models.resnet50(pretrained=True)
+    # init_pretrained(iresnet, resnet)
 
     iresnet = iresnet.cuda()
     resnet = resnet.cuda()

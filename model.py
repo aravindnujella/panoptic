@@ -73,7 +73,6 @@ class mask_branch(nn.Module):
     def forward(self, x):
         l1, l2, l3, l4 = x
         del(x)
-        # print(l1.shape, l2.shape, l3.shape, l4.shape)
         masks = []
 
         y = self.layer4(l4)
@@ -89,7 +88,6 @@ class mask_branch(nn.Module):
         y = F.interpolate(y, scale_factor=2)
 
         y = F.interpolate(y, scale_factor=2)
-        # y = torch.sum(y,1).unsqueeze(1)
         y = self.mask_layer(y)
         return y
 
@@ -117,7 +115,6 @@ class class_branch(nn.Module):
         self.cl2 = nn.Sequential(nn.Conv2d(512, 512, kernel_size=(3,3), padding=(1,1), bias=False),
                                 nn.ReLU(),
                                 )
-        # self.cl2 = self._make_layer(512, 512)
         self.avg = nn.AvgPool2d(kernel_size=7, stride=1)
         self.fc = nn.Linear(512, 134)
 
@@ -134,7 +131,6 @@ class class_branch(nn.Module):
         x = self.pool(x)
         x = self.cl2(x)
         x = self.avg(x)
-        # x = F.relu(x)
         x = x.view(x.shape[0], -1)
         x = self.fc(x)
         return x
@@ -143,8 +139,6 @@ class class_branch(nn.Module):
          return nn.Sequential(
             nn.Conv2d(inplanes, out_planes, kernel_size=(1,1), padding=(0,0),bias=False),
             nn.ReLU(),
-            # nn.Conv2d(out_planes, out_planes, kernel_size=(3,3), padding=(1,1),bias=False),
-            # nn.ReLU(),
             )            
 
 
@@ -159,10 +153,7 @@ class hgmodel(nn.Module):
         self.cb = class_branch()
 
     def forward(self, x):
-        # print(x[0][0].shape, x[1][0].shape)
-        # print(len(x[0]), len(x[1]))
         img, impulse = self.unpack_imgs(x)
-        # print(img.shape, impulse.shape)
         inp = torch.cat([img, impulse], 1)
         del(impulse)
         cf, mf = self.iresnet0(inp)

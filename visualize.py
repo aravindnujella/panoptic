@@ -1,6 +1,3 @@
-# TODO: Clean up
-# 
-
 import numpy as np
 import random
 from PIL import Image
@@ -39,61 +36,6 @@ def create_labelled_image(img, mask, class_name):
     font = ImageFont.truetype("./data/Aaargh.ttf", 14)
     draw.text((5, 5), class_name, font=font, fill=(255, 255, 255))
     return img
-
-
-# def visualize_targets(img, masks, class_response, base_impulse, config):
-#     g = config.GRID_SHAPE
-
-#     img = np.moveaxis(img, 0, 2)
-#     img *= config.STD_PIXEL
-#     img += config.MEAN_PIXEL
-#     img *= 255
-#     class_ids = np.argmax(class_response, 0).reshape(-1)
-#     N = class_ids.shape[0]
-#     response_colors = random_colors(N)
-#     impulse_colors = random_colors(N)
-#     for i in range(N):
-#         masked_img = img.copy()
-#         masked_img = apply_mask(masked_img, masks[i], response_colors[i])
-#         masked_img = apply_mask(masked_img, base_impulse[i], impulse_colors[i])
-#         masked_img = create_labelled_image(masked_img, masks[i], config.CLASS_NAMES[class_ids[i]])
-#         masked_img.save("./results/" + str(i) + ".png", "PNG")
-
-
-def visualize_targets(img, masks, class_ids, base_impulse, config):
-    img = np.moveaxis(img, 0, 2)
-    img *= config.STD_PIXEL
-    img += config.MEAN_PIXEL
-    img *= 255
-
-    N = class_ids.shape[0]
-    response_colors = random_colors(N)
-    impulse_colors = random_colors(N)
-    for i in range(N):
-        masked_img = img.copy()
-        masked_img = apply_mask(masked_img, masks[i], response_colors[i])
-        masked_img = apply_mask(masked_img, base_impulse[i], impulse_colors[i])
-        masked_img = create_labelled_image(masked_img, masks[i], config.CAT_NAMES[class_ids[i]])
-        masked_img.save("./results/" + str(i) + ".png", "PNG")
-
-
-def visualize_coco_data(img, masks, cat_ids, config):
-
-    img = np.moveaxis(img, 0, 2)
-    img *= config.STD_PIXEL
-    img += config.MEAN_PIXEL
-    img *= 255
-    class_ids = np.argmax(class_response, 0).reshape(-1)
-    N = class_ids.shape[0]
-    response_colors = random_colors(N)
-    impulse_colors = random_colors(N)
-    for i in range(N):
-        masked_img = img.copy()
-        masked_img = apply_mask(masked_img, masks[i], response_colors[i])
-        masked_img = apply_mask(masked_img, base_impulse[i], impulse_colors[i])
-        masked_img = create_labelled_image(masked_img, masks[i], config.CAT_NAMES[class_ids[i]])
-        masked_img.save("./results/" + str(i) + ".png", "PNG")
-
 
 
 # Master function

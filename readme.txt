@@ -78,3 +78,22 @@ TODO:
 
 [2018-10-23 16:08]
 > yup. degenerate network
+
+
+[2018-10-24 03:00]
+Description of the model tried:
+
+why can't I learn anything with the resnet model?
+potential locations for mistakes:
+1) iresnet could have some errors -> I've manually verified that there are no mistakes.
+2) under representational power of the chosen model
+3) under training
+4) bad loss function: mask_loss, class_loss
+5) bad design of class branch and loss branch: not taking translation equivariance into account
+6) bad ordering of training data: several images from same image => batchnorm could behave in ...? way.
+7) 
+
+
+
+
+

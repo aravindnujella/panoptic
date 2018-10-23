@@ -14,7 +14,6 @@ def loss_criterion1(pred, gt):
 
     class_loss = ce_class_loss(pred_scores, gt_labels)
     class_loss = class_loss.mean()
-    # print(mask_loss, class_loss)
     return class_loss
 
 # Classifcation losses available: crossentropy

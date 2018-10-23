@@ -213,7 +213,6 @@ def init_bottleneck(iblock, block, ds):
 
 def init_layer(ilayer, layer, block_count, d):
     assert(len(ilayer) == len(layer))
-    # !! repeated logic
     ds = [d, d // 2, d // 2, 2 * d]
     init_bottleneck(ilayer[0], layer[0], ds)
     ds[0] = ds[-1]
@@ -310,7 +309,6 @@ if __name__ == '__main__':
     iresnet = iresnet50(pretrained=True)
 
     resnet = models.resnet50(pretrained=True)
-    # init_pretrained(iresnet, resnet)
 
     iresnet = iresnet.cuda()
     resnet = resnet.cuda()

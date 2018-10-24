@@ -53,22 +53,22 @@ class CocoDataset(data.Dataset):
 
     def __getitem__(self, index):
 
-        # try:
-        # 0. read coco data as is; if no instances of required criteria then
-        # return None and filter in collate
-        data = self.load_data(index)
+        try:
+            # 0. read coco data as is; if no instances of required criteria then
+            # return None and filter in collate
+            data = self.load_data(index)
 
-        # 1. remove unwanted data
-        # 2. fixed resolution.
-        # 3. Data Augmentation: skipped for now
-        data = self.standardize_data(*data)
+            # 1. remove unwanted data
+            # 2. fixed resolution.
+            # 3. Data Augmentation: skipped for now
+            data = self.standardize_data(*data)
 
-        # 4. Target generation:
-        return self.generate_targets(*data)
+            # 4. Target generation:
+            return self.generate_targets(*data)
 
-        # except:
-        #     print("problem loading image index: %d" % index)
-        #     return None
+        except:
+            print("problem loading image index: %d %d" % (index, self.coco_data[index]['image_id']))
+            return None
 
     def load_data(self, index):
         coco_data = self.coco_data
@@ -90,12 +90,11 @@ class CocoDataset(data.Dataset):
         cat_ids = []
 
         coco_seg_file = Image.open(os.path.join(self.seg_dir,
-                                           segments_file))
+                                                segments_file))
         coco_seg = np.array(coco_seg_file.convert('RGB'), dtype=np.uint8)
         coco_seg_file.close()
 
         seg_id = self.rgb2id(coco_seg)
-
         ignore_cat_ids = np.array(config.IGNORE_CAT_IDS)
         for s in segments_info:
             mask = np.where(seg_id == s['id'], 1, 0)
@@ -136,18 +135,18 @@ class CocoDataset(data.Dataset):
 
         impulses = np.array(impulses)
 
-        # kind off out place. put in standardize_data??
-        img = img/255
+        # kind of out of place. put in standardize_data??
+        img = img / 255
         img -= self.config.MEAN_PIXEL
         img /= self.config.STD_PIXEL
         img = np.moveaxis(img, 2, 0)
 
+        imgs = np.stack([img for i in range(impulses.shape[0])], 0)
         # select 4 instances to train randomly
-        mask_sizes = np.array([np.sum(g) for g in instance_masks])
-        high = min(impulses.shape[0], 4)
-        # idx = np.random.randint(low=0,high=impulses.shape[0], size=(8,))
-        idx = mask_sizes.argsort()[-high:][::-1]
-        return img, impulses[idx], instance_masks[idx], cat_ids[idx]
+        # mask_sizes = np.array([np.sum(g) for g in instance_masks])
+        # high = min(impulses.shape[0], 8)
+        # idx = mask_sizes.argsort()[-high:][::-1]
+        return imgs, impulses, instance_masks, cat_ids
 
     def rgb2id(self, color):
         return color[:, :,
@@ -180,7 +179,7 @@ class CocoDataset(data.Dataset):
 
 # custom collate function
 # instead of using torch.cat, we return as list.
-# this is because impulses, instance_masks are of variable size and 
+# this is because impulses, instance_masks are of variable size and
 # cannot be concatenated. also if we dont do this, we have to send dummy masks
 # or replicate image to fit dimensions of impulses,
 
@@ -188,12 +187,12 @@ class CocoDataset(data.Dataset):
 
 def collate_fn(batch):
     batch = list(filter(lambda x: x is not None, batch))
-
     z = []
-    for i in range(len(batch[0])):
-        z.append([item[i] for item in batch])
-
+    n = len(batch[0])
+    for i in range(n):
+        z.append(torch.cat([torch.from_numpy(it[i]) for it in batch], 0))
     return z
+
 
 def get_loader(img_dir, seg_dir, ann, config):
     coco_dataset = CocoDataset(img_dir, seg_dir, ann, config)
@@ -201,7 +200,7 @@ def get_loader(img_dir, seg_dir, ann, config):
                                   batch_size=config.BATCH_SIZE,
                                   collate_fn=collate_fn,
                                   shuffle=True,
-                                  # pin_memory=config.PIN_MEMORY,
+                                  pin_memory=config.PIN_MEMORY,
                                   num_workers=config.NUM_WORKERS
                                   )
     return data_loader
@@ -215,20 +214,24 @@ if __name__ == '__main__':
     data_dir = "/home/aravind/dataset/"
     ann_dir = data_dir + "annotations/panoptic/"
 
-    val_img_dir = data_dir + "val2017/"
-    val_seg_dir = ann_dir + "panoptic_val2017/"
-    val_ann_json = ann_dir + "panoptic_val2017.json"
+    val_img_dir = data_dir + "train2017/"
+    val_seg_dir = ann_dir + "panoptic_train2017/"
+    val_ann_json = ann_dir + "panoptic_train2017.json"
+
 
     with open(val_ann_json, "r") as f:
         val_ann = json.load(f)
 
     val_dataset = CocoDataset(val_img_dir, val_seg_dir, val_ann, config)
-
     l = len(val_dataset)
-    index = random.choice(list(range(len(val_dataset))))
-
-    img, impulses, instance_masks, cat_ids = val_dataset[index]
-
-    visualize.visualize_targets(img, instance_masks, cat_ids, impulses, config)
-
+    # index = random.choice(list(range(len(val_dataset))))
+    index = 19726
+    imgs, impulses, instance_masks, cat_ids = val_dataset[index]
+    visualize.visualize_targets(imgs, impulses, instance_masks, cat_ids, config, "new")
     print(index)
+
+    # val_loader = get_loader(val_img_dir, val_seg_dir, val_ann, config)
+    # for i, data in enumerate(val_loader, 0):
+    #     print("Batch:%d" % i)
+    #     visualize.visualize_targets(data, config, "hehe")
+    #     input()

@@ -6,15 +6,13 @@ def loss_criterion1(pred, gt):
     pred_masks, pred_scores = pred
 
     gt_masks, gt_labels = gt
-    gt_masks = torch.stack(gt_masks, 1).float()
-    gt_labels = torch.cat(gt_labels, 0).long()
+    gt_masks.unsqueeze_(1)
+    gt_labels = gt_labels.long()
 
-    mask_loss = soft_iou(pred_masks, gt_masks)
-    mask_loss = mask_loss.mean()
-
+    mask_loss = balanced_bce(pred_masks, gt_masks)
     class_loss = ce_class_loss(pred_scores, gt_labels)
-    class_loss = class_loss.mean()
-    return class_loss
+
+    return mask_loss
 
 # Classifcation losses available: crossentropy
 
@@ -26,7 +24,7 @@ def loss_criterion1(pred, gt):
 def ce_class_loss(pred_scores, gt_labels):
     _loss = nn.CrossEntropyLoss(reduction='none')
     l = _loss(pred_scores, gt_labels)
-    return l
+    return l.mean()
 
 # Mask losses available: soft_iou, balanced_bce
 # input pred_masks and gt_masks of same shape
@@ -41,13 +39,21 @@ def soft_iou(pred_masks, gt_masks):
     i = (pred_masks * gt_masks).sum(-1).sum(-1)
     u = (pred_masks + gt_masks - pred_masks * gt_masks).sum(-1).sum(-1)
     l = 1 - i / u
-    return l
+    return l.mean()
 
 
-def balanced_bce(pred, gt):
-    return 0
+def balanced_bce(pred_masks, gt_masks):
+    fg_size = gt_masks.sum(-1).sum(-1).unsqueeze(-1).unsqueeze(-1)
+    bg_size = (1 - gt_masks).sum(-1).sum(-1).unsqueeze(-1).unsqueeze(-1)
 
+    _loss = nn.BCEWithLogitsLoss(reduction='none')
 
+    # loss where gt is +ve, -ve
+    fg_loss = _loss(pred_masks * gt_masks, gt_masks)
+    bg_loss = _loss(pred_masks * (1 - gt_masks), gt_masks)
+
+    l = (bg_size * fg_loss + fg_size * bg_loss) / (fg_size + bg_size)
+    return l.mean()
 # Easy example selection: takes tensor of losses and returns least n% of the losses
 
 

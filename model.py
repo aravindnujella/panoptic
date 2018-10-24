@@ -64,7 +64,7 @@ class mask_branch(nn.Module):
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
-                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+                nn.init.xavier_uniform_(m.weight)
             elif isinstance(m, nn.BatchNorm2d):
                 nn.init.constant_(m.weight, 1)
                 nn.init.constant_(m.bias, 0)
@@ -111,26 +111,26 @@ class class_branch(nn.Module):
         self.cl1 = nn.Sequential(nn.Conv2d(2048+128, 512, kernel_size=(1,1), padding=(0,0), bias=False),
                                 nn.ReLU(),
                                 )
-        self.pool = nn.MaxPool2d(kernel_size=2, stride=2)
+        self.pool1 = nn.MaxPool2d(kernel_size=2, stride=2)
         self.cl2 = nn.Sequential(nn.Conv2d(512, 512, kernel_size=(3,3), padding=(1,1), bias=False),
                                 nn.ReLU(),
                                 )
-        self.avg = nn.AvgPool2d(kernel_size=7, stride=1)
-        self.fc = nn.Linear(512, 134)
+        self.pool2 = nn.MaxPool2d(kernel_size=7, stride=1)
+        self.fc = nn.Linear(512*7*7, 134)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
-                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+                nn.init.xavier_uniform_(m.weight)
             elif isinstance(m, nn.BatchNorm2d):
                 nn.init.constant_(m.weight, 1)
                 nn.init.constant_(m.bias, 0)
-            elif isinstance(m, nn.Linear):
-                nn.init.constant_(m.weight, 0)
+            # elif isinstance(m, nn.Linear):
+            #     nn.init.constant_(m.weight, 0)
     def forward(self, x):
         x = self.cl1(x)
-        x = self.pool(x)
         x = self.cl2(x)
-        x = self.avg(x)
+        x = self.pool1(x)
+        # x = self.pool2(x)
         x = x.view(x.shape[0], -1)
         x = self.fc(x)
         return x
@@ -147,13 +147,15 @@ class hgmodel(nn.Module):
     def __init__(self):
         super(hgmodel, self).__init__()
         self.iresnet0 = iresnet.iresnet50(pretrained=True)
-        self.iresnet1 = iresnet.iresnet50(pretrained=True)
+        # self.iresnet1 = iresnet.iresnet50(pretrained=True)
         self.mb0 = mask_branch([3, 3, 3])
-        self.mb1 = mask_branch([3, 3, 3])
+        # self.mb1 = mask_branch([3, 3, 3])
         self.cb = class_branch()
 
     def forward(self, x):
-        img, impulse = self.unpack_imgs(x)
+        img, impulse = x
+        impulse.unsqueeze_(1)
+        # print(img.shape, impulse.shape)
         inp = torch.cat([img, impulse], 1)
         del(impulse)
         cf, mf = self.iresnet0(inp)
@@ -169,16 +171,3 @@ class hgmodel(nn.Module):
         c = self.cb(cf)
 
         return m0, c
-
-    def unpack_imgs(self, x):
-        imgs, impulses = x
-        new_imgs = []
-
-        for i, img in enumerate(imgs, 0):
-            rep = impulses[i].shape[0]
-            img = torch.cat([img.unsqueeze(0)] * rep, 0)
-            new_imgs.append(img)
-
-        new_impulses = [it.unsqueeze(1) for it in impulses]
-
-        return torch.cat(new_imgs, 0).float(), torch.cat(new_impulses, 0).float()

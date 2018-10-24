@@ -3,13 +3,12 @@ import numpy as np
 class Config():
     NAME = "InSegm"
     GPU_COUNT = 1
-    # online training
     IMAGES_PER_GPU = 1
     STEPS_PER_EPOCH = 100
     NUM_WORKERS = 16
-    # we always PIN_MEMORY!!
-    # PIN_MEMORY = True
+    PIN_MEMORY = True
     VALIDATION_STEPS = 20
+    MAX_INSTANCES = 8
 
     CAT_NAMES = ['BG'] + [
         'person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus', 'train',
@@ -54,7 +53,7 @@ class Config():
     STD_PIXEL = np.array(
         [0.229, 0.224, 0.225], dtype=np.float32).reshape(1, 1, -1)
 
-    IMPULSE_SIZE = (32, 32)
+    IMPULSE_SIZE = (16, 16)
     MIN_STUFF_AREA = 10 * 10
 
     def __init__(self):

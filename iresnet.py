@@ -152,15 +152,13 @@ def init_conv(iconv, conv, d_in, d_out, val=0):
     a = torch.zeros((d_out, old_in,) + kernel_size)
 
     b = np.zeros((d_out, d_in,))
-    if val == 0:    
+    if val == 0:
         b = np.zeros((d_out, d_in,))
     else:
         b = np.eye(d_out,d_in)
         if d_out>d_in:
             idx = np.array([i % d_in for i in range(d_out)])
             b[range(d_out), idx] = 1
-        else:
-            b = np.eye(d_out,d_in)
 
     b = torch.from_numpy(b).unsqueeze(-1).unsqueeze(-1).float()
     b = b.repeat([1, 1, kernel_size[0], kernel_size[1]])/fan_in

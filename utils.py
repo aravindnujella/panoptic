@@ -1,18 +1,17 @@
 import torch
 import numpy as np
 
-
-# takes list of tensors xD
-def cudify_list(l):
-    return [torch.from_numpy(it).cuda() for it in l]
-
-
 def cudify_data(d):
-    return [cudify_list(it) for it in d]
-
+    n = d[0].shape[0]
+    l = np.arange(n)
+    np.random.shuffle(l)
+    idx = l[:min(n, 4)]
+    return [it[idx].float().cuda() for it in d]
 
 # TODO: add load checkpoint??, add validation stats at the end of checkpoint
 #
+
+
 class Checkpoint:
 
     def __init__(self, iters_per_epoch, model_dir, model_name):

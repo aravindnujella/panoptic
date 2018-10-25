@@ -14,7 +14,7 @@ STD_PIXEL = np.array(
     [0.229, 0.224, 0.225], dtype=np.float32).reshape(1, 1, -1)
 
 # single image(wh3) to input format required by pretrained models
-def imgToInp(img):    
+def imgToInp(img):
     inp = img.copy() / 255
     inp -= MEAN_PIXEL
     inp /= STD_PIXEL

@@ -54,6 +54,8 @@ def balanced_bce(pred_masks, gt_masks):
 
     l = (bg_size * fg_loss + fg_size * bg_loss) / (fg_size + bg_size)
     return l.mean()
+
+
 # Easy example selection: takes tensor of losses and returns least n% of the losses
 
 

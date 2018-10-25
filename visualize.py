@@ -46,18 +46,11 @@ def create_labelled_image(img, mask, class_name):
 def visualize_targets(data, config, name):
     imgs, impulses, masks, cat_ids = [it.numpy() for it in data]
 
-    # imgs = np.moveaxis(imgs, 1, 3)
-    # imgs *= np.expand_dims(config.STD_PIXEL, 0)
-    # imgs += np.expand_dims(config.MEAN_PIXEL, 0)
-    # imgs *= 255
-    # imgs = imgs.astype(np.uint8)
-
     N = cat_ids.shape[0]
     response_colors = random_colors(N)
     impulse_colors = random_colors(N)
     for i in range(N):
         masked_img = utils.inpToImg(imgs[i])
-        # Image.fromarray(masked_img,"RGB").show()
         masked_img = apply_mask(masked_img, masks[i], response_colors[i])
         masked_img = apply_mask(masked_img, impulses[i], impulse_colors[i])
         masked_img = create_labelled_image(masked_img, masks[i], config.CAT_NAMES[int(cat_ids[i])])

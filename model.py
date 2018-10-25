@@ -86,12 +86,11 @@ class mask_branch(nn.Module):
         y = F.interpolate(y, scale_factor=2)
 
         y = self.layer1(torch.cat([y, l1], 1))
+
         y = self.layer0(y)
+
         y = F.interpolate(y, scale_factor=4)
 
-        # y,_ = torch.max(y,1,keepdim=True)
-
-        # y = F.interpolate(y, scale_factor=2)
         return y
 
     def _make_layer(self, block, inplanes, planes, bc):
@@ -105,12 +104,6 @@ class mask_branch(nn.Module):
             layers.append(block(block.expansion * planes, planes, downsample=None))
 
         return nn.Sequential(*layers)
-        # return nn.Sequential(
-        #     nn.Conv2d(inplanes, planes, kernel_size=(1,1), bias=False),
-        #     nn.Conv2d(planes, planes, kernel_size=(3,3), bias=False, padding=(1,1)),
-        #     nn.Conv2d(planes, 4*planes, kernel_size=(1,1), bias=False),
-        #     nn.ReLU(),
-        #     )
 
 class class_branch(nn.Module):
 

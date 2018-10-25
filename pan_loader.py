@@ -142,10 +142,6 @@ class CocoDataset(data.Dataset):
         img = np.moveaxis(img, 2, 0)
 
         imgs = np.stack([img for i in range(impulses.shape[0])], 0)
-        # select 4 instances to train randomly
-        # mask_sizes = np.array([np.sum(g) for g in instance_masks])
-        # high = min(impulses.shape[0], 8)
-        # idx = mask_sizes.argsort()[-high:][::-1]
         return imgs, impulses, instance_masks, cat_ids
 
     def rgb2id(self, color):

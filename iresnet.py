@@ -100,11 +100,6 @@ class iResNet(nn.Module):
         self.layer3 = self._make_layer(block, 4 * 64, 4 * d, block_counts[3], stride=2)
         self.layer4 = self._make_layer(block, 8 * 64, 8 * d, block_counts[4], stride=2)
 
-        # self.wing4 = nn.Conv2d(4 * 8 * 64 + (8 * d) * 2, 8 * 64 + (8 * d) // 2, kernel_size=(1,1),bias=False)
-        # self.wing3 = nn.Conv2d(4 * 4 * 64 + (4 * d) * 2, 4 * 64 + (4 * d) // 2, kernel_size=(1,1),bias=False)
-        # self.wing2 = nn.Conv2d(4 * 2 * 64 + (2 * d) * 2, 2 * 64 + (2 * d) // 2, kernel_size=(1,1),bias=False)
-        # self.wing1 = nn.Conv2d(4 * 1 * 64 + (1 * d) * 2, 1 * 64 + (1 * d) // 2, kernel_size=(1,1),bias=False)
-
     def _make_layer(self, block, planes, d, block_count, stride):
 
         ds = [d, d // 2, d // 2, 2 * d]
@@ -177,20 +172,10 @@ def init_bn(ibn, bn, d_in):
     old_in = bn.weight.shape[0]
     assert(old_in == ibn.ignore_bn.weight.shape[0])
 
-    # print(bn.running_var, bn.running_mean)
-    # for i in ibn.named_parameters():
-    #     print(i)
     ibn.ignore_bn.running_var = bn.running_var
     ibn.ignore_bn.running_mean = bn.running_mean
-    # ibn.ignore_bn.register_buffer('running_var', bn.running_var)
-    # ibn.ignore_bn.register_buffer('running_mean', bn.running_mean)
     ibn.ignore_bn.weight = nn.Parameter(bn.weight)
     ibn.ignore_bn.bias = nn.Parameter(bn.bias)
-
-    # nn.init.constant_(ibn.copy_bn.running_var, 1)
-    # nn.init.constant_(ibn.copy_bn.running_mean, 0)
-    # nn.init.constant_(ibn.copy_bn.weight, 1)
-    # nn.init.constant_(ibn.copy_bn.bias, 0)
 
 
 def init_bottleneck(iblock, block, ds):
@@ -318,7 +303,7 @@ if __name__ == '__main__':
 
     neq = (iresnet(inp)[0][:, :2048, :, :] != resnet_conv(resnet, img))
     print(torch.sum(neq))
-    print(iresnet(inp)[0].shape)
-    print(iresnet(inp)[0][0, 2047, :, :])
-    print(resnet_conv(resnet, img)[0, 2047, :, :])
-    print(iresnet(inp)[0][0, 2048:, :, :])
+    # print(iresnet(inp)[0].shape)
+    # print(iresnet(inp)[0][0, 2047, :, :])
+    # print(resnet_conv(resnet, img)[0, 2047, :, :])
+    # print(iresnet(inp)[0][0, 2048:, :, :])

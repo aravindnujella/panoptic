@@ -47,7 +47,7 @@ class Config():
         186, 187, 188, 189, 190, 191, 192, 193, 194, 195, 196, 197, 198, 199,
         200
     ]
-    IGNORE_CAT_NAMES = ['BG']
+    IGNORE_CAT_NAMES = ['BG'] 
     MEAN_PIXEL = np.array(
         [0.485, 0.456, 0.406], dtype=np.float32).reshape(1, 1, -1)
     STD_PIXEL = np.array(
@@ -57,8 +57,8 @@ class Config():
     MIN_STUFF_AREA = 10 * 10
 
     def __init__(self):
-        self.WIDTH = 32 * 14
-        self.HEIGHT = 32 * 14
+        self.WIDTH = 32 * 7
+        self.HEIGHT = 32 * 7
         self.BATCH_SIZE = self.IMAGES_PER_GPU * self.GPU_COUNT
         self.IMAGE_SHAPE = (self.WIDTH, self.HEIGHT, 3)
         # 133 + 1 in panoptic

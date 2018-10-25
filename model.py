@@ -11,12 +11,12 @@ class Bottleneck(nn.Module):
     def __init__(self, inplanes, planes, stride=1, downsample=None):
         super(Bottleneck, self).__init__()
         self.conv1 = nn.Conv2d(inplanes, planes, kernel_size=1, bias=False)
-        self.bn1 = nn.BatchNorm2d(planes)
+        self.bn1 = nn.BatchNorm2d(planes, momentum=0.1,track_running_stats=True)
         self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=stride,
                                padding=1, bias=False)
-        self.bn2 = nn.BatchNorm2d(planes)
+        self.bn2 = nn.BatchNorm2d(planes, momentum=0.1,track_running_stats=True)
         self.conv3 = nn.Conv2d(planes, planes * self.expansion, kernel_size=1, bias=False)
-        self.bn3 = nn.BatchNorm2d(planes * self.expansion)
+        self.bn3 = nn.BatchNorm2d(planes * self.expansion, momentum=0.1,track_running_stats=True)
         self.relu = nn.ReLU(inplace=True)
         self.downsample = downsample
         self.stride = stride
@@ -58,9 +58,10 @@ class mask_branch(nn.Module):
         self.layer2 = self._make_layer(Bottleneck, inplanes=4 * (2 * 64 + (2 * d) // 2) + e * planes // 2, planes=planes // 4, bc=bc3)
         self.layer1 = self._make_layer(Bottleneck, inplanes=4 * (1 * 64 + (1 * d) // 2) + e * planes // 4, planes=planes // 8, bc=bc3)
 
-        self.mask_layer = nn.Sequential(
-            nn.Conv2d(planes//2, 1, kernel_size=(3, 3), bias=False, padding=(1,1)),
-        )
+        self.layer0 = nn.Sequential(
+            nn.Conv2d(planes//2, 1, kernel_size=(7, 7), bias=False, padding=(3,3)),
+            nn.BatchNorm2d(1, momentum=0.1,track_running_stats=True),
+            )
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -85,16 +86,18 @@ class mask_branch(nn.Module):
         y = F.interpolate(y, scale_factor=2)
 
         y = self.layer1(torch.cat([y, l1], 1))
-        y = F.interpolate(y, scale_factor=2)
+        y = self.layer0(y)
+        y = F.interpolate(y, scale_factor=4)
 
-        y = F.interpolate(y, scale_factor=2)
-        y = self.mask_layer(y)
+        # y,_ = torch.max(y,1,keepdim=True)
+
+        # y = F.interpolate(y, scale_factor=2)
         return y
 
     def _make_layer(self, block, inplanes, planes, bc):
         downsample = nn.Sequential(
             nn.Conv2d(inplanes, block.expansion * planes, kernel_size=1, bias=False),
-            nn.BatchNorm2d(block.expansion * planes),
+            nn.BatchNorm2d(block.expansion * planes, momentum=0.1,track_running_stats=True),
         )
         layers = []
         layers.append(block(inplanes, planes, downsample=downsample))
@@ -102,7 +105,12 @@ class mask_branch(nn.Module):
             layers.append(block(block.expansion * planes, planes, downsample=None))
 
         return nn.Sequential(*layers)
-
+        # return nn.Sequential(
+        #     nn.Conv2d(inplanes, planes, kernel_size=(1,1), bias=False),
+        #     nn.Conv2d(planes, planes, kernel_size=(3,3), bias=False, padding=(1,1)),
+        #     nn.Conv2d(planes, 4*planes, kernel_size=(1,1), bias=False),
+        #     nn.ReLU(),
+        #     )
 
 class class_branch(nn.Module):
 
@@ -129,7 +137,7 @@ class class_branch(nn.Module):
     def forward(self, x):
         x = self.cl1(x)
         x = self.cl2(x)
-        x = self.pool1(x)
+        # x = self.pool1(x)
         # x = self.pool2(x)
         x = x.view(x.shape[0], -1)
         x = self.fc(x)
@@ -148,13 +156,14 @@ class hgmodel(nn.Module):
         super(hgmodel, self).__init__()
         self.iresnet0 = iresnet.iresnet50(pretrained=True)
         # self.iresnet1 = iresnet.iresnet50(pretrained=True)
-        self.mb0 = mask_branch([3, 3, 3])
+        self.mb0 = mask_branch([1, 2, 3])
         # self.mb1 = mask_branch([3, 3, 3])
         self.cb = class_branch()
 
     def forward(self, x):
         img, impulse = x
         impulse.unsqueeze_(1)
+        impulse -= 0.5
         # print(img.shape, impulse.shape)
         inp = torch.cat([img, impulse], 1)
         del(impulse)

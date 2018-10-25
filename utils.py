@@ -5,7 +5,7 @@ def cudify_data(d):
     n = d[0].shape[0]
     l = np.arange(n)
     np.random.shuffle(l)
-    idx = l[:min(n, 4)]
+    idx = l[:min(n, 16)]
     return [it[idx].float().cuda() for it in d]
 
 # TODO: add load checkpoint??, add validation stats at the end of checkpoint

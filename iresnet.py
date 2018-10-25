@@ -30,14 +30,14 @@ class ibn(nn.Module):
 
     def __init__(self, old_in, d_in, *args, **kwargs):
         super(ibn, self).__init__()
-        self.ignore_bn = nn.BatchNorm2d(old_in, *args, **kwargs)
-        self.copy_bn = nn.BatchNorm2d(d_in, *args, **kwargs)
+        self.ignore_bn = nn.BatchNorm2d(old_in, *args, **kwargs, momentum=0.1)
+        self.copy_bn = nn.BatchNorm2d(d_in, *args, **kwargs, momentum=0.1)
         self.old_in = old_in
         self.d_in = d_in
 
     def forward(self, x):
         ig, cp = x[:, :self.old_in, :, :], x[:, self.old_in:, :, :]
-        ig, cp = self.ignore_bn(ig), cp
+        ig, cp = self.ignore_bn(ig), self.copy_bn(cp)
         return torch.cat([ig, cp], 1)
 
 
@@ -177,15 +177,20 @@ def init_bn(ibn, bn, d_in):
     old_in = bn.weight.shape[0]
     assert(old_in == ibn.ignore_bn.weight.shape[0])
 
+    # print(bn.running_var, bn.running_mean)
+    # for i in ibn.named_parameters():
+    #     print(i)
     ibn.ignore_bn.running_var = bn.running_var
     ibn.ignore_bn.running_mean = bn.running_mean
-    ibn.ignore_bn.weight = bn.weight
-    ibn.ignore_bn.bias = bn.bias
+    # ibn.ignore_bn.register_buffer('running_var', bn.running_var)
+    # ibn.ignore_bn.register_buffer('running_mean', bn.running_mean)
+    ibn.ignore_bn.weight = nn.Parameter(bn.weight)
+    ibn.ignore_bn.bias = nn.Parameter(bn.bias)
 
-    nn.init.constant_(ibn.copy_bn.running_var, 1)
-    nn.init.constant_(ibn.copy_bn.running_mean, 0)
-    nn.init.constant_(ibn.copy_bn.weight, 1)
-    nn.init.constant_(ibn.copy_bn.bias, 0)
+    # nn.init.constant_(ibn.copy_bn.running_var, 1)
+    # nn.init.constant_(ibn.copy_bn.running_mean, 0)
+    # nn.init.constant_(ibn.copy_bn.weight, 1)
+    # nn.init.constant_(ibn.copy_bn.bias, 0)
 
 
 def init_bottleneck(iblock, block, ds):

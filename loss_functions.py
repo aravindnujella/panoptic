@@ -2,14 +2,14 @@ import torch
 import torch.nn as nn
 
 
-def loss_criterion1(pred, gt):
+def loss_criterion(pred, gt):
     pred_masks, pred_scores = pred
 
     gt_masks, gt_labels = gt
     gt_masks.unsqueeze_(1)
     gt_labels = gt_labels.long()
 
-    mask_loss = balanced_bce(pred_masks, gt_masks)
+    mask_loss = soft_iou(pred_masks, gt_masks)
     class_loss = ce_class_loss(pred_scores, gt_labels)
 
     return mask_loss

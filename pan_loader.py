@@ -68,7 +68,7 @@ class CocoDataset(data.Dataset):
 
         except:
             print("problem loading image index: %d %d" % (index, self.coco_data[index]['image_id']))
-            return None
+            return self[random.choice(range(len(self)))]
 
     def load_data(self, index):
         coco_data = self.coco_data

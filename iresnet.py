@@ -13,10 +13,10 @@ model_urls = {
 }
 
 
-class iconv(nn.Module):
+class iConv2d(nn.Module):
 
     def __init__(self, new_in, old_out, d_out, *args, **kwargs):
-        super(iconv, self).__init__()
+        super(iConv2d, self).__init__()
         self.ignore_conv = nn.Conv2d(new_in, old_out, *args, **kwargs)
         self.copy_conv = nn.Conv2d(new_in, d_out, *args, **kwargs)
 
@@ -26,10 +26,10 @@ class iconv(nn.Module):
         return torch.cat([ig, cp], 1)
 
 
-class ibn(nn.Module):
+class iBatchNorm2d(nn.Module):
 
     def __init__(self, old_in, d_in, *args, **kwargs):
-        super(ibn, self).__init__()
+        super(iBatchNorm2d, self).__init__()
         self.ignore_bn = nn.BatchNorm2d(old_in, *args, **kwargs, momentum=0.1)
         self.copy_bn = nn.BatchNorm2d(d_in, *args, **kwargs, momentum=0.1)
         self.old_in = old_in
@@ -47,12 +47,12 @@ class iBottleneck(nn.Module):
     def __init__(self, inplanes, planes, d, stride=1, downsample=None):
         super(iBottleneck, self).__init__()
         p, q, r, s = d
-        self.conv1 = iconv(inplanes + p, planes, q, kernel_size=1, bias=False)
-        self.bn1 = ibn(planes, q)
-        self.conv2 = iconv(planes + q, planes, r, kernel_size=3, stride=stride, padding=1, bias=False)
-        self.bn2 = ibn(planes, r)
-        self.conv3 = iconv(planes + r, planes * self.expansion, s, kernel_size=1, bias=False)
-        self.bn3 = ibn(planes * self.expansion, s)
+        self.conv1 = iConv2d(inplanes + p, planes, q, kernel_size=1, bias=False)
+        self.bn1 = iBatchNorm2d(planes, q)
+        self.conv2 = iConv2d(planes + q, planes, r, kernel_size=3, stride=stride, padding=1, bias=False)
+        self.bn2 = iBatchNorm2d(planes, r)
+        self.conv3 = iConv2d(planes + r, planes * self.expansion, s, kernel_size=1, bias=False)
+        self.bn3 = iBatchNorm2d(planes * self.expansion, s)
         self.relu = nn.ReLU(inplace=True)
         self.downsample = downsample
         self.stride = stride
@@ -88,9 +88,9 @@ class iResNet(nn.Module):
         self.d = d
         self.block_counts = block_counts
         self.ichannels = ichannels
-        self.conv1 = iconv(3 + ichannels, 64, d, kernel_size=7, stride=2, padding=3,
+        self.conv1 = iConv2d(3 + ichannels, 64, d, kernel_size=7, stride=2, padding=3,
                            bias=False)
-        self.bn1 = ibn(64, d)
+        self.bn1 = iBatchNorm2d(64, d)
         self.relu = nn.ReLU(inplace=True)
 
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
@@ -105,8 +105,8 @@ class iResNet(nn.Module):
         ds = [d, d // 2, d // 2, 2 * d]
 
         downsample = nn.Sequential(
-            iconv(self.inplanes + ds[0], planes * block.expansion, ds[-1], kernel_size=1, stride=stride, bias=False),
-            ibn(planes * block.expansion, ds[-1]),
+            iConv2d(self.inplanes + ds[0], planes * block.expansion, ds[-1], kernel_size=1, stride=stride, bias=False),
+            iBatchNorm2d(planes * block.expansion, ds[-1]),
         )
 
         layers = []
@@ -176,7 +176,6 @@ def init_bn(ibn, bn, d_in):
     ibn.ignore_bn.running_mean = bn.running_mean
     ibn.ignore_bn.weight = nn.Parameter(bn.weight)
     ibn.ignore_bn.bias = nn.Parameter(bn.bias)
-
 
 def init_bottleneck(iblock, block, ds):
 

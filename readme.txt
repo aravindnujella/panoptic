@@ -94,6 +94,8 @@ potential locations for mistakes:
 7) 
 
 
-
-
-
+[2018-10-26 07:02]
+> renamed classes and variable names to be separate in iresnet.py
+> turns out that running_var, running mean as parameters/ buffers doesn't make difference; However we register them as buffers that don't require grad
+> It requires about 6k images to see the results of training
+> memory usage (4.5GB): 1 image, max_instances = 16, 224*224, resnet50 is partially frozen(pretrained weights are all frozen), only mask_branch is trained

@@ -2,61 +2,25 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import iresnet
+from ResidualBlock import *
+
 import utils
-
-
-class Bottleneck(nn.Module):
-    expansion = 4
-
-    def __init__(self, inplanes, planes, stride=1, downsample=None):
-        super(Bottleneck, self).__init__()
-        self.conv1 = nn.Conv2d(inplanes, planes, kernel_size=1, bias=False)
-        self.bn1 = nn.BatchNorm2d(planes, momentum=0.1,track_running_stats=True)
-        self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=stride,
-                               padding=1, bias=False)
-        self.bn2 = nn.BatchNorm2d(planes, momentum=0.1,track_running_stats=True)
-        self.conv3 = nn.Conv2d(planes, planes * self.expansion, kernel_size=1, bias=False)
-        self.bn3 = nn.BatchNorm2d(planes * self.expansion, momentum=0.1,track_running_stats=True)
-        self.relu = nn.ReLU(inplace=True)
-        self.downsample = downsample
-        self.stride = stride
-
-    def forward(self, x):
-        residual = x
-
-        out = self.conv1(x)
-        out = self.bn1(out)
-        out = self.relu(out)
-
-        out = self.conv2(out)
-        out = self.bn2(out)
-        out = self.relu(out)
-
-        out = self.conv3(out)
-        out = self.bn3(out)
-
-        if self.downsample is not None:
-            residual = self.downsample(x)
-
-        out += residual
-        out = self.relu(out)
-
-        return out
-
 
 class mask_branch(nn.Module):
 
     def __init__(self, block_counts, out_planes=1):
         super(mask_branch, self).__init__()
 
-        bc5, bc4, bc3 = block_counts
-        planes = 512
+        bc4, bc3, bc2, bc1, bc0, bci = block_counts
+        planes = 256
         d = 8
-        e = Bottleneck.expansion
-        self.layer4 = self._make_layer(Bottleneck, inplanes=4 * (8 * 64 + (8 * d) // 2), planes=planes // 1, bc=bc5)
-        self.layer3 = self._make_layer(Bottleneck, inplanes=4 * (4 * 64 + (4 * d) // 2) + e * planes // 1, planes=planes // 2, bc=bc4)
-        self.layer2 = self._make_layer(Bottleneck, inplanes=4 * (2 * 64 + (2 * d) // 2) + e * planes // 2, planes=planes // 4, bc=bc3)
-        self.layer1 = self._make_layer(Bottleneck, inplanes=4 * (1 * 64 + (1 * d) // 2) + e * planes // 4, planes=planes // 8, bc=bc3)
+        e = 4
+        self.layer4 = self._make_residual_layer(inplanes=256, planes=planes // 1, outplanes=(planes // 1)*e,bc=bc4)
+        self.layer3 = self._make_residual_layer(inplanes=128 + e * planes // 1, planes=planes // 2, outplanes=(planes // 2)*e,bc=bc3)
+        self.layer2 = self._make_residual_layer(inplanes=64 + e * planes // 2, planes=planes // 4, outplanes=(planes // 4)*e,bc=bc2)
+        self.layer1 = self._make_residual_layer(inplanes=32 + e * planes // 4, planes=planes // 8, outplanes=(planes // 8)*e,bc=bc1)
+        self.layer1 = self._make_residual_layer(inplanes=16 + e * planes // 8, planes=planes // 16, outplanes=(planes // 16)*e,bc=bc0)
+        self.layer0 = self._make_residual_layer(inplanes=8 + e * planes // 16, planes=planes // 32, outplanes=(planes // 32)*e,bc=bci)
 
         self.layer0 = nn.Sequential(
             nn.Conv2d(planes//2, 1, kernel_size=(7, 7), bias=False, padding=(3,3)),
@@ -72,11 +36,11 @@ class mask_branch(nn.Module):
 
 
     def forward(self, x):
-        l1, l2, l3, l4 = x
+        y, (li, l0, l1, l2, l3, l4) = x
         del(x)
         masks = []
 
-        y = self.layer4(l4)
+        y = self.layer4(torch.cat([y, l4]), 1)
         y = F.interpolate(y, scale_factor=2)
 
         y = self.layer3(torch.cat([y, l3], 1))
@@ -86,14 +50,16 @@ class mask_branch(nn.Module):
         y = F.interpolate(y, scale_factor=2)
 
         y = self.layer1(torch.cat([y, l1], 1))
+        y = F.interpolate(y, scale_factor=2)
 
-        y = self.layer0(y)
+        y = self.layer0(torch.cat([y, l0], 1))
+        y = F.interpolate(y, scale_factor=2)
 
-        y = F.interpolate(y, scale_factor=4)
+        y = self.layeri(torch.cat([y, li], 1))
 
         return y
 
-    def _make_layer(self, block, inplanes, planes, bc):
+    def _make_layer(self, inplanes, planes, out_planes, bc):
         downsample = nn.Sequential(
             nn.Conv2d(inplanes, block.expansion * planes, kernel_size=1, bias=False),
             nn.BatchNorm2d(block.expansion * planes, momentum=0.1,track_running_stats=True),

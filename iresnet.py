@@ -3,8 +3,10 @@ import torch.nn as nn
 import torch.utils.model_zoo as model_zoo
 import torchvision.models as models
 
-import numpy as np
+import iResidualBlock as irb
+import ResidualBlock as rb
 
+import numpy as np
 
 model_urls = {
     'resnet50': 'https://download.pytorch.org/models/resnet50-19c8e357.pth',
@@ -12,127 +14,53 @@ model_urls = {
     'resnet152': 'https://download.pytorch.org/models/resnet152-b121ed2d.pth',
 }
 
-
-class iConv2d(nn.Module):
-
-    def __init__(self, new_in, old_out, d_out, *args, **kwargs):
-        super(iConv2d, self).__init__()
-        self.ignore_conv = nn.Conv2d(new_in, old_out, *args, **kwargs)
-        self.copy_conv = nn.Conv2d(new_in, d_out, *args, **kwargs)
-
-    def forward(self, x):
-        ig = self.ignore_conv(x)
-        cp = self.copy_conv(x)
-        return torch.cat([ig, cp], 1)
-
-
-class iBatchNorm2d(nn.Module):
-
-    def __init__(self, old_in, d_in, *args, **kwargs):
-        super(iBatchNorm2d, self).__init__()
-        self.ignore_bn = nn.BatchNorm2d(old_in, *args, **kwargs, momentum=0.1)
-        self.copy_bn = nn.BatchNorm2d(d_in, *args, **kwargs, momentum=0.1)
-        self.old_in = old_in
-        self.d_in = d_in
-
-    def forward(self, x):
-        ig, cp = x[:, :self.old_in, :, :], x[:, self.old_in:, :, :]
-        ig, cp = self.ignore_bn(ig), self.copy_bn(cp)
-        return torch.cat([ig, cp], 1)
-
-
-class iBottleneck(nn.Module):
-    expansion = 4
-
-    def __init__(self, inplanes, planes, d, stride=1, downsample=None):
-        super(iBottleneck, self).__init__()
-        p, q, r, s = d
-        self.conv1 = iConv2d(inplanes + p, planes, q, kernel_size=1, bias=False)
-        self.bn1 = iBatchNorm2d(planes, q)
-        self.conv2 = iConv2d(planes + q, planes, r, kernel_size=3, stride=stride, padding=1, bias=False)
-        self.bn2 = iBatchNorm2d(planes, r)
-        self.conv3 = iConv2d(planes + r, planes * self.expansion, s, kernel_size=1, bias=False)
-        self.bn3 = iBatchNorm2d(planes * self.expansion, s)
-        self.relu = nn.ReLU(inplace=True)
-        self.downsample = downsample
-        self.stride = stride
-
-    def forward(self, x):
-        residual = x
-
-        out = self.conv1(x)
-        out = self.bn1(out)
-        out = self.relu(out)
-
-        out = self.conv2(out)
-        out = self.bn2(out)
-        out = self.relu(out)
-
-        out = self.conv3(out)
-        out = self.bn3(out)
-
-        if self.downsample is not None:
-            residual = self.downsample(x)
-
-        out += residual
-        out = self.relu(out)
-
-        return out
-
-
 class iResNet(nn.Module):
 
-    def __init__(self, block, block_counts, d=4, ichannels=1):
+    def __init__(self, block_counts, d=4, ichannels=1):
         super(iResNet, self).__init__()
-        self.inplanes = 64
+        inplanes = 64
         self.d = d
         self.block_counts = block_counts
         self.ichannels = ichannels
-        self.conv1 = iConv2d(3 + ichannels, 64, d, kernel_size=7, stride=2, padding=3,
-                           bias=False)
-        self.bn1 = iBatchNorm2d(64, d)
+
+        # 0
+        self.conv1 = irb.iConv2d(3 + ichannels, 64, d, kernel_size=7, stride=2, padding=3,
+                             bias=False)
+        self.bn1 = irb.iBatchNorm2d(64, d)
         self.relu = nn.ReLU(inplace=True)
-
+        # 1
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
+        self.layer1 = irb._make_iresidual_layer(1 * inplanes, 1 * 64, 1 * d, block_counts[1], stride=1)
+        # 2
+        self.layer2 = irb._make_iresidual_layer(4 * inplanes, 2 * 64, 2 * d, block_counts[2], stride=2)
+        # 3
+        self.layer3 = irb._make_iresidual_layer(8 * inplanes, 4 * 64, 4 * d, block_counts[3], stride=2)
+        # 4
+        self.layer4 = irb._make_iresidual_layer(16 * inplanes, 8 * 64, 8 * d, block_counts[4], stride=2)
 
-        self.layer1 = self._make_layer(block, 1 * 64, 1 * d, block_counts[1], stride=1)
-        self.layer2 = self._make_layer(block, 2 * 64, 2 * d, block_counts[2], stride=2)
-        self.layer3 = self._make_layer(block, 4 * 64, 4 * d, block_counts[3], stride=2)
-        self.layer4 = self._make_layer(block, 8 * 64, 8 * d, block_counts[4], stride=2)
-
-    def _make_layer(self, block, planes, d, block_count, stride):
-
-        ds = [d, d // 2, d // 2, 2 * d]
-
-        downsample = nn.Sequential(
-            iConv2d(self.inplanes + ds[0], planes * block.expansion, ds[-1], kernel_size=1, stride=stride, bias=False),
-            iBatchNorm2d(planes * block.expansion, ds[-1]),
-        )
-
-        layers = []
-        layers.append(block(self.inplanes, planes, ds, stride, downsample))
-        self.inplanes = planes * block.expansion
-        ds[0] = ds[-1]
-        for i in range(1, block_count):
-            layers.append(block(self.inplanes, planes, ds))
-
-        return nn.Sequential(*layers)
+        self.wingi = rb._make_residual_layer(4, 8, 8, 3)
+        self.wing0 = rb._make_residual_layer(64 + d, 16, 16, 3)
+        self.wing1 = rb._make_residual_layer(256 + 2*d, 32, 32, 3)
+        self.wing2 = rb._make_residual_layer(512+4*d, 64, 64, 3)
+        self.wing3 = rb._make_residual_layer(1024+8*d, 128, 128, 3)
+        self.wing4 = rb._make_residual_layer(2048+16*d, 256, 256, 3)
 
     def forward(self, x):
-        outs = []
+        outs = [self.wingi(x)]
         x = self.conv1(x)
         x = self.bn1(x)
-        x = self.relu(x)
+        x = self.relu(x); outs.append(self.wing0(x))
 
         x = self.maxpool(x)
+        x = self.layer1(x); outs.append(self.wing1(x))
 
-        x = self.layer1(x); outs.append(x)
-        x = self.layer2(x); outs.append(x)
-        x = self.layer3(x); outs.append(x)
-        x = self.layer4(x); outs.append(x)
+        x = self.layer2(x); outs.append(self.wing2(x))
+
+        x = self.layer3(x); outs.append(self.wing3(x))
+
+        x = self.layer4(x); outs.append(self.wing4(x))
 
         return x, outs
-
 
 def init_conv(iconv, conv, d_in, d_out, val=0):
     weight = conv.weight
@@ -150,16 +78,17 @@ def init_conv(iconv, conv, d_in, d_out, val=0):
     if val == 0:
         b = np.zeros((d_out, d_in,))
     else:
-        b = np.eye(d_out,d_in)
-        if d_out>d_in:
+        b = np.eye(d_out, d_in)
+        if d_out > d_in:
             idx = np.array([i % d_in for i in range(d_out)])
             b[range(d_out), idx] = 1
 
     b = torch.from_numpy(b).unsqueeze(-1).unsqueeze(-1).float()
-    b = b.repeat([1, 1, kernel_size[0], kernel_size[1]])/fan_in
+    b = b.repeat([1, 1, kernel_size[0], kernel_size[1]]) / fan_in
 
     cp_filter_weight = torch.cat([a, b], 1)
 
+    # print(iconv.copy_conv.weight.shape, cp_filter_weight.shape)
     assert(iconv.copy_conv.weight.shape == cp_filter_weight.shape)
     assert(iconv.ignore_conv.weight.shape == ig_filter_weight.shape)
 
@@ -176,6 +105,7 @@ def init_bn(ibn, bn, d_in):
     ibn.ignore_bn.running_mean = bn.running_mean
     ibn.ignore_bn.weight = nn.Parameter(bn.weight)
     ibn.ignore_bn.bias = nn.Parameter(bn.bias)
+
 
 def init_bottleneck(iblock, block, ds):
 
@@ -222,9 +152,9 @@ def init_pretrained(iresnet, resnet):
     init_layer(iresnet.layer4, resnet.layer4, block_counts[4], 8 * d)
 
 
-def iresnet101(pretrained=False):
+def iresnet101(pretrained=False ):
     block_counts = [0, 3, 4, 23, 3]
-    iresnet = iResNet(iBottleneck, block_counts, 4)
+    iresnet = iResNet(block_counts, d=4)
     resnet = models.resnet101(pretrained=True)
     if pretrained:
         init_pretrained(iresnet, resnet)
@@ -233,7 +163,7 @@ def iresnet101(pretrained=False):
 
 def iresnet50(pretrained=False):
     block_counts = [0, 3, 4, 6, 3]
-    iresnet = iResNet(iBottleneck, block_counts, 8)
+    iresnet = iResNet(block_counts, d=8)
     resnet = models.resnet50(pretrained=True)
     if pretrained:
         init_pretrained(iresnet, resnet)
@@ -248,9 +178,10 @@ if __name__ == '__main__':
 
     import numpy as np
     torch.set_printoptions(threshold=float('nan'))
-    
+
     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
     os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+
     def resnet_conv(resnet, x):
         x = resnet.conv1(x)
         x = resnet.bn1(x)
@@ -284,8 +215,8 @@ if __name__ == '__main__':
 
     impulse = torch.zeros(img.shape[-2:])
     w, h = img.shape[-2:]
-    impulse[w//2-32:w//2+32, h//2-32:h//2+32] = 1
-    Image.fromarray((impulse.numpy()*255).astype(np.uint8),"L").show()
+    impulse[w // 2 - 32:w // 2 + 32, h // 2 - 32:h // 2 + 32] = 1
+    Image.fromarray((impulse.numpy() * 255).astype(np.uint8), "L").show()
 
     impulse.unsqueeze_(0).unsqueeze_(0)
     inp = torch.cat([img, impulse], 1)

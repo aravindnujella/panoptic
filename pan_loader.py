@@ -52,7 +52,7 @@ class CocoDataset(data.Dataset):
         return catMap
 
     def __getitem__(self, index):
-        index = index % 20
+        # index = index % 20
         try:
             # 0. read coco data as is; if no instances of required criteria then
             # return None and filter in collate

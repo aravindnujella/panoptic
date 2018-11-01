@@ -1,6 +1,7 @@
 import torch
 import numpy as np
 
+
 def cudify_data(d):
     # n = d[0].shape[0]
     # l = np.arange(n)
@@ -14,6 +15,8 @@ STD_PIXEL = np.array(
     [0.229, 0.224, 0.225], dtype=np.float32).reshape(1, 1, -1)
 
 # single image(wh3) to input format required by pretrained models
+
+
 def imgToInp(img):
     inp = img.copy() / 255
     inp -= MEAN_PIXEL
@@ -22,6 +25,8 @@ def imgToInp(img):
     return inp
 
 # single input(3wh) for pretrained models to RGB image for PIL.Image
+
+
 def inpToImg(inp):
     img = np.moveaxis(inp.copy(), 0, 2)
     img *= STD_PIXEL
@@ -33,7 +38,6 @@ def inpToImg(inp):
 #
 
 
-
 class Checkpoint:
 
     def __init__(self, iters_per_epoch, model_dir, model_name):
@@ -42,21 +46,31 @@ class Checkpoint:
         self.model_name = model_name
 
         self.step = 0
-        self.running_loss = None
+        self.run = {}
         # self.val_fn = val_fn
 
-    # loss must be cpu torch tensor
-    def update(self, loss, net):
-        if self.running_loss is None:
-            self.running_loss = torch.zeros_like(loss)
+    # metrics must be a dict of form {'name': torch.Tensor()}
+    def update(self, metrics, net):
+        if not any(self.run):
+            self.reset_run(metrics)
 
-        self.running_loss += loss
+        for key in metrics.keys():
+            self.run[key] += metrics[key]
+
         self.step += 1
 
         if self.step % self.iters_per_epoch == 0:
             self.display_loss()
             torch.save(net.state_dict(), "%s%s_%d.pt" % (self.model_dir, self.model_name, self.step - self.step))
-            self.running_loss = None
+            self.reset_run(metrics)
+
+    def reset_run(self, metrics):
+        for key in metrics.keys():
+            self.run[key] = torch.zeros_like(metrics[key])
 
     def display_loss(self):
-        print("Step: %d\t%0.5f" % (self.step, self.running_loss.data / self.iters_per_epoch))
+        torch.set_printoptions(precision=4)
+        print("\nStep: %d" % (self.step))
+
+        for key in self.run.keys():
+            print("%s\t"%key, self.run[key]/self.iters_per_epoch)

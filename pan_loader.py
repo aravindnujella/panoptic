@@ -52,7 +52,7 @@ class CocoDataset(data.Dataset):
         return catMap
 
     def __getitem__(self, index):
-
+        index = index % 20
         try:
             # 0. read coco data as is; if no instances of required criteria then
             # return None and filter in collate
@@ -210,20 +210,24 @@ if __name__ == '__main__':
     data_dir = "/home/aravind/dataset/"
     ann_dir = data_dir + "annotations/panoptic/"
 
-    val_img_dir = data_dir + "train2017/"
-    val_seg_dir = ann_dir + "panoptic_train2017/"
-    val_ann_json = ann_dir + "panoptic_train2017.json"
+    # val_img_dir = data_dir + "train2017/"
+    # val_seg_dir = ann_dir + "panoptic_train2017/"
+    # val_ann_json = ann_dir + "panoptic_train2017.json"
 
+    val_img_dir = data_dir + "val2017/"
+    val_seg_dir = ann_dir + "panoptic_val2017/"
+    val_ann_json = ann_dir + "panoptic_val2017.json"
 
     with open(val_ann_json, "r") as f:
         val_ann = json.load(f)
 
     val_dataset = CocoDataset(val_img_dir, val_seg_dir, val_ann, config)
     l = len(val_dataset)
-    # index = random.choice(list(range(len(val_dataset))))
-    index = 19726
-    imgs, impulses, instance_masks, cat_ids = val_dataset[index]
-    visualize.visualize_targets(imgs, impulses, instance_masks, cat_ids, config, "new")
+    index = random.choice(list(range(len(val_dataset))))
+    # index = 19726
+    data = [torch.from_numpy(it) for it in val_dataset[index]]
+    # imgs, impulses, instance_masks, cat_ids = val_dataset[index]
+    visualize.visualize_targets(data, config, "new")
     print(index)
 
     # val_loader = get_loader(val_img_dir, val_seg_dir, val_ann, config)

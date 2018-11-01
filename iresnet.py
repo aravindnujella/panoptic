@@ -14,6 +14,7 @@ model_urls = {
     'resnet152': 'https://download.pytorch.org/models/resnet152-b121ed2d.pth',
 }
 
+
 class iResNet(nn.Module):
 
     def __init__(self, block_counts, d=4, ichannels=1):
@@ -25,7 +26,7 @@ class iResNet(nn.Module):
 
         # 0
         self.conv1 = irb.iConv2d(3 + ichannels, 64, d, kernel_size=7, stride=2, padding=3,
-                             bias=False)
+                                 bias=False)
         self.bn1 = irb.iBatchNorm2d(64, d)
         self.relu = nn.ReLU(inplace=True)
         # 1
@@ -38,15 +39,15 @@ class iResNet(nn.Module):
         # 4
         self.layer4 = irb._make_iresidual_layer(16 * inplanes, 8 * 64, 8 * d, block_counts[4], stride=2)
 
-        self.wingi = rb._make_residual_layer(4, 8, 8, 3)
-        self.wing0 = rb._make_residual_layer(64 + d, 16, 16, 3)
-        self.wing1 = rb._make_residual_layer(256 + 2*d, 32, 32, 3)
-        self.wing2 = rb._make_residual_layer(512+4*d, 64, 64, 3)
-        self.wing3 = rb._make_residual_layer(1024+8*d, 128, 128, 3)
-        self.wing4 = rb._make_residual_layer(2048+16*d, 256, 256, 3)
+        self.wingi = rb._make_residual_layer(4, 8, 8, 1)
+        self.wing0 = rb._make_residual_layer(64 + d, 16, 16, 1)
+        self.wing1 = rb._make_residual_layer(256 + 2 * d, 32, 32, 1)
+        self.wing2 = rb._make_residual_layer(512 + 4 * d, 64, 64, 1)
+        self.wing3 = rb._make_residual_layer(1024 + 8 * d, 128, 128, 1)
+        self.wing4 = rb._make_residual_layer(2048 + 16 * d, 256, 256, 1)
 
     def forward(self, x):
-        outs = [self.wingi(x)]
+        outs = [torch.cat([x[:,-1,:,:].unsqueeze(1) for i in range(8)], 1)]
         x = self.conv1(x)
         x = self.bn1(x)
         x = self.relu(x); outs.append(self.wing0(x))
@@ -61,6 +62,7 @@ class iResNet(nn.Module):
         x = self.layer4(x); outs.append(self.wing4(x))
 
         return x, outs
+
 
 def init_conv(iconv, conv, d_in, d_out, val=0):
     weight = conv.weight
@@ -152,7 +154,7 @@ def init_pretrained(iresnet, resnet):
     init_layer(iresnet.layer4, resnet.layer4, block_counts[4], 8 * d)
 
 
-def iresnet101(pretrained=False ):
+def iresnet101(pretrained=False):
     block_counts = [0, 3, 4, 23, 3]
     iresnet = iResNet(block_counts, d=4)
     resnet = models.resnet101(pretrained=True)
@@ -234,6 +236,6 @@ if __name__ == '__main__':
     neq = (iresnet(inp)[0][:, :2048, :, :] != resnet_conv(resnet, img))
     print(torch.sum(neq))
     # print(iresnet(inp)[0].shape)
-    # print(iresnet(inp)[0][0, 2047, :, :])
+    print(iresnet(inp)[0][0, 2047, :, :])
     # print(resnet_conv(resnet, img)[0, 2047, :, :])
-    # print(iresnet(inp)[0][0, 2048:, :, :])
+    print(iresnet(inp)[0][0, 2048:, :, :])

@@ -9,7 +9,7 @@ def loss_criterion(pred, gt):
     gt_masks.unsqueeze_(1)
     gt_labels = gt_labels.long()
 
-    mask_loss = soft_iou(pred_masks, gt_masks)
+    mask_loss = balanced_bce(pred_masks, gt_masks)
     class_loss = ce_class_loss(pred_scores, gt_labels)
 
     return mask_loss
@@ -43,6 +43,7 @@ def soft_iou(pred_masks, gt_masks):
 
 
 def balanced_bce(pred_masks, gt_masks):
+    # print(pred_masks.shape, gt_masks.shape)
     fg_size = gt_masks.sum(-1).sum(-1).unsqueeze(-1).unsqueeze(-1)
     bg_size = (1 - gt_masks).sum(-1).sum(-1).unsqueeze(-1).unsqueeze(-1)
 

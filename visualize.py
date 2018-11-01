@@ -46,6 +46,7 @@ def create_labelled_image(img, mask, class_name):
 def visualize_targets(data, config, name):
     imgs, impulses, masks, cat_ids = [it.numpy() for it in data]
 
+    print(imgs.shape, impulses.shape)
     N = cat_ids.shape[0]
     response_colors = random_colors(N)
     impulse_colors = random_colors(N)

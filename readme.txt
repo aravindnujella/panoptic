@@ -99,3 +99,15 @@ potential locations for mistakes:
 > turns out that running_var, running mean as parameters/ buffers doesn't make difference; However we register them as buffers that don't require grad
 > It requires about 6k images to see the results of training
 > memory usage (4.5GB): 1 image, max_instances = 16, 224*224, resnet50 is partially frozen(pretrained weights are all frozen), only mask_branch is trained
+
+
+
+[2018-11-02 06:30]
+TODO:
+> (L) cleanup: remove limit on min size of inputs (panloader), 
+> (H) learn for non trivial inputs
+> (L) clean up squeeze and unsqueeze of instance_masks, instances. 
+    => rework how visualize  deals with them 
+> (L) rework so that entire workflow uses hyperparameters as defined in config instead of local ones.
+> (H) add residual in residual_block
+> (H) unable to learn even trivial case if wingi is enabled

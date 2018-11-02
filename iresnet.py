@@ -47,7 +47,8 @@ class iResNet(nn.Module):
         self.wing4 = rb._make_residual_layer(2048 + 16 * d, 256, 256, 1)
 
     def forward(self, x):
-        outs = [torch.cat([x[:,-1,:,:].unsqueeze(1) for i in range(8)], 1)]
+        # outs = [torch.cat([x[:,-1,:,:].unsqueeze(1) for i in range(8)], 1)]
+        outs = [self.wingi(x)]
         x = self.conv1(x)
         x = self.bn1(x)
         x = self.relu(x); outs.append(self.wing0(x))

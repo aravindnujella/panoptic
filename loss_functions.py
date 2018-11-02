@@ -2,12 +2,12 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+
 def loss_criterion(pred, gt):
     mask_logits, cat_scores = pred
 
     gt_masks, gt_labels = gt
     gt_masks.unsqueeze_(1)
-    print(gt_masks.type())
     gt_labels = gt_labels.long()
 
     mask_loss = balanced_bce(mask_logits, gt_masks)
@@ -37,15 +37,16 @@ def ce_class_loss(cat_scores, gt_labels):
 
 
 def soft_iou(mask_logits, gt_masks):
+    assert(mask_logits.shape == gt_masks.shape)
     pred_masks = mask_logits.sigmoid()
     i = (pred_masks * gt_masks).sum(-1).sum(-1)
     u = (pred_masks + gt_masks - pred_masks * gt_masks).sum(-1).sum(-1)
     l = 1 - i / u
-    # print(l)
     return l.mean()
 
 
 def balanced_bce(mask_logits, gt_masks):
+    assert(mask_logits.shape == gt_masks.shape)
     fg_size = gt_masks.sum(-1).sum(-1).unsqueeze(-1).unsqueeze(-1)
     bg_size = (1 - gt_masks).sum(-1).sum(-1).unsqueeze(-1).unsqueeze(-1)
 
@@ -69,16 +70,15 @@ def select_easy(l, frac=1):
     # return L[:l]
 
 
-# accuracy metrics
-# 
+# Accuracy metrics
+#
 def mean_iou(mask_logits, gt_masks, cutoff=0.5):
+    assert(mask_logits.shape == gt_masks.shape)
     with torch.no_grad():
         gt_masks = gt_masks.float()
         pred_masks = mask_logits.sigmoid()
-        # pred_masks = F.threshold(pred_masks, 0.5, 0)
-        pred_masks = (pred_masks>0.5).float()
-        i = ((pred_masks*gt_masks)>0).sum(-1).sum(-1).float()
-        u = ((pred_masks + gt_masks)>0).sum(-1).sum(-1).float()
-
-        iou = (i/u).squeeze()
+        pred_masks = (pred_masks > cutoff).float()
+        i = ((pred_masks * gt_masks) > 0).sum(-1).sum(-1).float()
+        u = ((pred_masks + gt_masks) > 0).sum(-1).sum(-1).float()
+        iou = (i / u).squeeze()
         return torch.stack([iou.mean(), i.mean(), u.mean()])

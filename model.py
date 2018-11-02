@@ -49,7 +49,6 @@ class mask_branch(nn.Module):
         y = self.layer2(torch.cat([y, l2], 1))
         y = F.interpolate(y, scale_factor=2)
 
-        # print(y.shape, l1.shape)
         y = self.layer1(torch.cat([y, l1], 1))
         y = F.interpolate(y, scale_factor=2)
 
@@ -115,7 +114,6 @@ class hgmodel(nn.Module):
         img, impulse = x
         imp = impulse.unsqueeze(1)
         # impulse -= impulse.mean()
-        # print(img.shape, impulse.shape)
         inp = torch.cat([img, imp], 1)
         del(impulse)
         cf, mf = self.iresnet0(inp)

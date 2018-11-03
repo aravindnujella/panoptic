@@ -1,4 +1,5 @@
 import torch
+import torch.nn as nn
 import numpy as np
 
 
@@ -60,8 +61,14 @@ class Checkpoint:
         self.step += 1
 
         if self.step % self.iters_per_epoch == 0:
+            state_dict = None
+            if isinstance(net, nn.DataParallel):
+                state_dict = net.module.state_dict()
+            else:
+                state_dict = net.state_dict()
+            torch.save(state_dict, "%s%s_%d.pt" % (self.model_dir, self.model_name, self.step - self.step))
+
             self.display_loss()
-            torch.save(net.state_dict(), "%s%s_%d.pt" % (self.model_dir, self.model_name, self.step - self.step))
             self.reset_run(metrics)
 
     def reset_run(self, metrics):
@@ -73,4 +80,4 @@ class Checkpoint:
         print("\nStep: %d" % (self.step))
 
         for key in self.run.keys():
-            print("%s\t"%key, self.run[key]/self.iters_per_epoch)
+            print("%s\t" % key, self.run[key] / self.iters_per_epoch)

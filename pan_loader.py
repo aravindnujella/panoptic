@@ -80,7 +80,6 @@ class CocoDataset(data.Dataset):
         segments_info = ann['segments_info']
         segments_file = ann['segments_file']
         image_file = ann['image_file']
-        # print(image_id)
         img_file = Image.open(os.path.join(self.img_dir, image_file))
         img = np.array(img_file.convert('RGB'))
         img_file.close()

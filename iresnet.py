@@ -47,7 +47,6 @@ class iResNet(nn.Module):
         self.wing4 = rb._make_residual_layer(2048 + 16 * d, 512, 512, 3)
 
     def forward(self, x):
-        # outs = [torch.cat([x[:,-1,:,:].unsqueeze(1) for i in range(8)], 1)]
         outs = [self.wingi(x)]
         x = self.conv1(x)
         x = self.bn1(x)
@@ -91,7 +90,6 @@ def init_conv(iconv, conv, d_in, d_out, val=0):
 
     cp_filter_weight = torch.cat([a, b], 1)
 
-    # print(iconv.copy_conv.weight.shape, cp_filter_weight.shape)
     assert(iconv.copy_conv.weight.shape == cp_filter_weight.shape)
     assert(iconv.ignore_conv.weight.shape == ig_filter_weight.shape)
 

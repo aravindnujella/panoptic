@@ -116,3 +116,11 @@ TODO:
 
 [2018-11-03 05:29]
 > git diff HEAD^ -- ":!*.ipynb" to ignore ipynb from git diff
+
+
+[2018-11-03 08:31]
+jupyter lab
+
+
+[2018-11-03 11:49]
+> first non trivial model. still suffering from similar deficiencies as vgg model

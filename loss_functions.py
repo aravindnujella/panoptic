@@ -81,4 +81,4 @@ def mean_iou(mask_logits, gt_masks, cutoff=0.5):
         i = ((pred_masks * gt_masks) > 0).sum(-1).sum(-1).float()
         u = ((pred_masks + gt_masks) > 0).sum(-1).sum(-1).float()
         iou = (i / u).squeeze()
-        return torch.stack([iou.mean(), i.mean(), u.mean()])
+        return iou.mean()

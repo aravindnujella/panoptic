@@ -141,7 +141,15 @@ class CocoDataset(data.Dataset):
         img = np.moveaxis(img, 2, 0)
 
         imgs = np.stack([img for i in range(impulses.shape[0])], 0)
-        return imgs, impulses, instance_masks, cat_ids
+
+        n = impulses.shape[0]
+        # areas = np.sum(impulses, (1,2))
+        # idx = np.argsort(areas)[-min(n,8):]
+        l = np.arange(n)
+        np.random.shuffle(l)
+        idx = l[:min(n, 8)]
+
+        return imgs[idx], impulses[idx], instance_masks[idx], cat_ids[idx]
 
     def rgb2id(self, color):
         return color[:, :,

@@ -16,12 +16,12 @@ class mask_branch(nn.Module):
         planes = 256
         d = 8
         e = 1
-        self.layer4 = rb._make_residual_layer(inplanes=256, planes=planes // 1, outplanes=(planes // 1) * e, bc=bc4)
-        self.layer3 = rb._make_residual_layer(inplanes=128 + e * planes // 1, planes=planes // 2, outplanes=(planes // 2) * e, bc=bc3)
-        self.layer2 = rb._make_residual_layer(inplanes=64 + e * planes // 2, planes=planes // 4, outplanes=(planes // 4) * e, bc=bc2)
-        self.layer1 = rb._make_residual_layer(inplanes=32 + e * planes // 4, planes=planes // 8, outplanes=(planes // 8) * e, bc=bc1)
-        self.layer0 = rb._make_residual_layer(inplanes=16 + e * planes // 8, planes=planes // 16, outplanes=(planes // 16) * e, bc=bc0)
-        self.layeri = rb._make_residual_layer(inplanes=8 + e * planes // 16, planes=planes // 32, outplanes=(planes // 32), bc=bci)
+        self.layer4 = rb._make_residual_layer(inplanes=512, planes=planes // 1, outplanes=(planes // 1) * e, bc=bc4)
+        self.layer3 = rb._make_residual_layer(inplanes=256 + e * planes // 1, planes=planes // 2, outplanes=(planes // 2) * e, bc=bc3)
+        self.layer2 = rb._make_residual_layer(inplanes=128 + e * planes // 2, planes=planes // 4, outplanes=(planes // 4) * e, bc=bc2)
+        self.layer1 = rb._make_residual_layer(inplanes=64 + e * planes // 4, planes=planes // 8, outplanes=(planes // 8) * e, bc=bc1)
+        self.layer0 = rb._make_residual_layer(inplanes=32 + e * planes // 8, planes=planes // 16, outplanes=(planes // 16) * e, bc=bc0)
+        self.layeri = rb._make_residual_layer(inplanes=16 + e * planes // 16, planes=planes // 32, outplanes=(planes // 32), bc=bci)
 
         self.mask_layer = nn.Sequential(
             nn.Conv2d((planes // 32), 1, kernel_size=(3, 3), padding=(1,1), bias=False),
@@ -112,9 +112,7 @@ class hgmodel(nn.Module):
 
     def forward(self, x):
         img, impulse = x
-        imp = impulse.unsqueeze(1)
-        # impulse -= impulse.mean()
-        inp = torch.cat([img, imp], 1)
+        inp = torch.cat([img, impulse], 1)
         del(impulse)
         cf, mf = self.iresnet0(inp)
         m0 = self.mb0(mf)

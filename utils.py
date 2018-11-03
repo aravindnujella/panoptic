@@ -3,11 +3,11 @@ import numpy as np
 
 
 def cudify_data(d):
-    n = d[0].shape[0]
-    l = np.arange(n)
-    np.random.shuffle(l)
-    idx = l[:min(n, 4)]
-    return [it[idx].float().cuda() for it in d]
+    # n = d[0].shape[0]
+    # l = np.arange(n)
+    # np.random.shuffle(l)
+    # idx = l[:min(n, 8)]
+    return [it.float().cuda() for it in d]
 
 MEAN_PIXEL = np.array(
     [0.485, 0.456, 0.406], dtype=np.float32).reshape(1, 1, -1)

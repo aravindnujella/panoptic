@@ -111,3 +111,8 @@ TODO:
 > (L) rework so that entire workflow uses hyperparameters as defined in config instead of local ones.
 > (H) add residual in residual_block
 > (H) unable to learn even trivial case if wingi is enabled
+
+
+
+[2018-11-03 05:29]
+> git diff HEAD^ -- ":!*.ipynb" to ignore ipynb from git diff

@@ -27,7 +27,7 @@ class iBatchNorm2d(nn.Module):
 
     def forward(self, x):
         ig, cp = x[:, :self.old_in, :, :], x[:, self.old_in:, :, :]
-        ig, cp = self.ignore_bn(ig), cp
+        ig, cp = self.ignore_bn(ig), self.copy_bn(cp)
         return torch.cat([ig, cp], 1)
 
 

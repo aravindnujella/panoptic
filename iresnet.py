@@ -39,7 +39,7 @@ class iResNet(nn.Module):
         # 4
         self.layer4 = irb._make_iresidual_layer(16 * inplanes, 8 * 64, 8 * d, block_counts[4], stride=2)
 
-        self.wingi = rb._make_residual_layer(4, 8, 8, 1)
+        self.wingi = rb._make_residual_layer(4, 8, 8, 3)
         self.wing0 = rb._make_residual_layer(64 + d, 16, 16, 1)
         self.wing1 = rb._make_residual_layer(256 + 2 * d, 32, 32, 1)
         self.wing2 = rb._make_residual_layer(512 + 4 * d, 64, 64, 1)

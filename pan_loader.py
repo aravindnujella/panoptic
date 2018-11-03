@@ -99,7 +99,7 @@ class CocoDataset(data.Dataset):
             mask = np.where(seg_id == s['id'], 1, 0)
             iscrowd = s['iscrowd']
             cat_id = self.catMap[s['category_id']]
-            if (s['iscrowd'] != 1) and (cat_id not in ignore_cat_ids) and mask.sum(-1).sum(-1) > 144:
+            if (s['iscrowd'] != 1) and (cat_id not in ignore_cat_ids) and np.sum(mask) > 144:
                 instance_masks.append(mask)
                 cat_ids.append(self.catMap[s['category_id']])
 

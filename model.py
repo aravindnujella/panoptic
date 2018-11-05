@@ -23,10 +23,30 @@ class mask_branch(nn.Module):
         self.layer0 = rb._make_residual_layer(inplanes=32 + e * planes // 8, planes=planes // 16, outplanes=(planes // 16) * e, bc=bc0)
         self.layeri = rb._make_residual_layer(inplanes=16 + e * planes // 16, planes=planes // 32, outplanes=(planes // 32), bc=bci)
 
-        self.mask_layer = nn.Sequential(
-            nn.Conv2d((planes // 32), 1, kernel_size=(3, 3), padding=(1,1), bias=False),
+        self.mask_layer4 = nn.Sequential(
+            nn.Conv2d(planes//1, 1,(3,3),padding=(1,1), bias=False),
             nn.BatchNorm2d(1),
-        )
+            )
+        self.mask_layer3 = nn.Sequential(
+            nn.Conv2d(planes//2, 1,(3,3),padding=(1,1), bias=False),
+            nn.BatchNorm2d(1),
+            )
+        self.mask_layer2 = nn.Sequential(
+            nn.Conv2d(planes//4, 1,(3,3),padding=(1,1), bias=False),
+            nn.BatchNorm2d(1),
+            )
+        self.mask_layer1 = nn.Sequential(
+            nn.Conv2d(planes//8, 1,(3,3),padding=(1,1), bias=False),
+            nn.BatchNorm2d(1),
+            )
+        self.mask_layer0 = nn.Sequential(
+            nn.Conv2d(planes//16, 1,(3,3),padding=(1,1), bias=False),
+            nn.BatchNorm2d(1),
+            )
+        self.mask_layeri = nn.Sequential(
+            nn.Conv2d(planes//32, 1,(3,3),padding=(1,1), bias=False),
+            nn.BatchNorm2d(1),
+            )
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -41,24 +61,29 @@ class mask_branch(nn.Module):
         masks = []
 
         y = self.layer4(l4)
+        # masks.append(self.mask_layer4(y))
         y = F.interpolate(y, scale_factor=2)
 
         y = self.layer3(torch.cat([y, l3], 1))
+        # masks.append(self.mask_layer3(y))
         y = F.interpolate(y, scale_factor=2)
 
         y = self.layer2(torch.cat([y, l2], 1))
+        # masks.append(self.mask_layer2(y))
         y = F.interpolate(y, scale_factor=2)
 
         y = self.layer1(torch.cat([y, l1], 1))
+        masks.append(self.mask_layer1(y))
         y = F.interpolate(y, scale_factor=2)
 
         y = self.layer0(torch.cat([y, l0], 1))
+        masks.append(self.mask_layer0(y))
         y = F.interpolate(y, scale_factor=2)
 
         y = self.layeri(torch.cat([y, li], 1))
+        masks.append(self.mask_layeri(y))
 
-        y = self.mask_layer(y)
-        return y
+        return masks
 
 
 class class_branch(nn.Module):

@@ -29,7 +29,8 @@ def ce_class_loss(cat_scores, gt_labels):
     return l.mean()
 
 
-# Mask losses available: soft_iou, balanced_bce
+# Mask losses available: soft_iou, balanced_bce;
+# multi_scale_mask_loss which can inturn use above two losses
 # input pred_masks and gt_masks of same shape
 # pred_masks are (pre-sigmoid) logit scores .i.e,
 # both must be of same shape: (B, C, w, h)
@@ -59,6 +60,19 @@ def balanced_bce(mask_logits, gt_masks):
     l = (bg_size * fg_loss + fg_size * bg_loss) / (fg_size + bg_size)
     return l.mean()
 
+# list of masks. each in format (B,1,w,h)
+# =>[(B,1,w,h)]
+
+
+def msm_loss(multi_mask_logits, multi_gt_masks, _loss_fn):
+    n = len(multi_mask_logits)
+    _losses = []
+
+    for i in range(n):
+        _loss = _loss_fn(multi_mask_logits[i], multi_gt_masks[i])
+        _losses.append(_loss)
+
+    return torch.stack(_losses)
 
 # Easy example selection: takes tensor of losses and returns least n% of the losses
 
@@ -82,3 +96,17 @@ def mean_iou(mask_logits, gt_masks, cutoff=0.5):
         u = ((pred_masks + gt_masks) > 0).sum(-1).sum(-1).float()
         iou = (i / u).squeeze()
         return iou.mean()
+
+
+def segmentation_quality(mask_logits, gt_masks, cutoff=0.5):
+    assert(mask_logits.shape == gt_masks.shape)
+    with torch.no_grad():
+        gt_masks = gt_masks.float()
+        pred_masks = mask_logits.sigmoid()
+        pred_masks = (pred_masks > cutoff).float()
+        i = ((pred_masks * gt_masks) > 0).sum(-1).sum(-1).float()
+        u = ((pred_masks + gt_masks) > 0).sum(-1).sum(-1).float()
+        iou = (i / u).squeeze()
+        tp_count = (iou > 0.5).sum().float()
+        total_iou = (iou * (iou > 0.5).float()).sum().float()
+        return total_iou / tp_count, tp_count, iou.shape[0]
